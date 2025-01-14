@@ -27,6 +27,6 @@ jobs:
       run: ./mvnw clean install
       working-directory: ./backend
 
-    - name: Run tests
-      run: ./mvnw test
-      working-directory: ./backend
+#    - name: Run tests
+#      run: ./mvnw test
+#      working-directory: ./backend
