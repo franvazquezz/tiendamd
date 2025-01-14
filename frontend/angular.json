@@ -32,6 +32,7 @@
               }
             ],
             "styles": [
+              "@angular/material/prebuilt-themes/rose-red.css",
               "src/styles.scss"
             ],
             "scripts": []
@@ -91,15 +92,28 @@
               }
             ],
             "styles": [
+              "@angular/material/prebuilt-themes/rose-red.css",
               "src/styles.scss"
             ],
             "scripts": []
+          }
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "src/**/*.ts",
+              "src/**/*.html"
+            ]
           }
         }
       }
     }
   },
   "cli": {
-    "analytics": "ac399770-85a9-4be2-9edd-b809f8070f14"
+    "analytics": "ac399770-85a9-4be2-9edd-b809f8070f14",
+    "schematicCollections": [
+      "angular-eslint"
+    ]
   }
 }
