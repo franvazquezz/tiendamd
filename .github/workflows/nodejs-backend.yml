@@ -1,0 +1,51 @@
+name: Node.js Backend CI
+
+on:
+  push:
+    branches:
+      - main  # o la rama que desees
+  pull_request:
+    branches:
+      - main  # o la rama que desees
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # La máquina virtual de GitHub donde se ejecutará la acción
+    
+    steps:
+      # Paso 1: Verificar el código fuente
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Paso 2: Configurar Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'  # Cambia la versión según lo que estés usando
+
+      # Paso 3: Instalar dependencias
+      - name: Install dependencies
+        run: npm install
+
+      # Paso 4: Ejecutar los tests (opcional si tienes tests)
+      #- name: Run tests
+      #  run: npm test  # Asegúrate de tener configurado un script de test
+
+      # Paso 5: Compilar el proyecto (opcional si necesitas compilar TypeScript)
+      - name: Compile TypeScript
+        run: npx tsc
+
+      # Paso 6: Ejecutar la aplicación (opcional, por ejemplo, para probar localmente)
+      - name: Run backend server
+        run: node dist/app.js  # Cambia a la ubicación del archivo compilado
+
+      # (Opcional) Paso 7: Desplegar el proyecto (si estás desplegando a un servicio)
+      # Aquí puedes agregar el paso de despliegue a servicios como Heroku, AWS, etc.
+      # Ejemplo: Subir a Heroku (si lo configuras para ello)
+      - name: Deploy to Heroku (ejemplo)
+        uses: akshnz/heroku-deploy-action@v0.0.5
+        with:
+          heroku_api_key: ${{secrets.HEROKU_API_KEY}}
+          heroku_app_name: 'your-app-name'
+          heroku_email: 'your-email@example.com'
+
