@@ -1,0 +1,25 @@
+# Node.js dependencies
+/node_modules/
+
+# TypeScript output
+/dist/
+ 
+# Logs
+*.log
+
+# OS-specific files
+.DS_Store      # macOS
+Thumbs.db      # Windows
+
+# IDEs and editors
+/.idea/        # JetBrains IDEs
+/.vscode/      # Visual Studio Code
+*.suo          # Visual Studio
+*.user
+*.userosscache
+
+# Environment variables
+.env
+
+# npm package lock files (opcional si no deseas tenerlo en el repositorio)
+# package-lock.json
