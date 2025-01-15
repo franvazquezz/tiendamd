@@ -59,7 +59,7 @@ jobs:
         run: npm install
 
       - name: Deploy to server
-        run: |
+        run:
           # Aquí puedes agregar tu script de despliegue, por ejemplo,
           # usando FTP, AWS, Heroku, etc.
           echo "Deploying to the server..."  # Script de despliegue
