@@ -1,36 +1,49 @@
-name: CI/CD Angular
+name: Angular CI with trpc
 
 on:
   push:
     branches:
       - main
-      - develop
   pull_request:
     branches:
       - main
-      - develop
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: 18
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'  # Define la versión de Node.js que deseas usar
 
-    - name: Install dependencies
-      run: npm install
-      working-directory: ./frontend
+      - name: Cache node_modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
 
-  #  - name: Run Angular tests
-  #    run: npm test -- --watch=false
-  #    working-directory: ./frontend
+      - name: Install dependencies
+        run: npm install  # Instala las dependencias de tu proyecto Angular
 
-    - name: Build Angular app
-      run: npm run build -- --prod
-      working-directory: ./frontend
+      - name: Build the Angular project
+        run: npm run build --if-present  # Construye el proyecto, optimizando para producción
+
+      #- name: Run tests
+      #  run: npm run test -- --watch=false  # Ejecuta las pruebas unitarias
+
+      #- name: Lint code
+      #  run: npm run lint  # Si tienes configurado un linter, lo ejecuta
+
+      - name: Deploy to production
+        if: github.ref == 'refs/heads/main'  # Asegura que el despliegue solo ocurra en la rama main
+        run: 
+          # Aquí puedes agregar tu script de despliegue, por ejemplo,
+          # usando FTP, AWS S3, Netlify, Vercel, etc.
+          echo "Deploying to production..."  # Script de despliegue (ajusta según tu plataforma)
