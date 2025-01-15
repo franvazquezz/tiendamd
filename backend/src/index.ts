@@ -1,11 +1,13 @@
 import express from "express";
 import * as trpcExpress from "@trpc/server/adapters/express";
-import {appRouter} from "./routers";
-import {createContext} from "./context";
+import {appRouter} from "./routers"; // Ajusta según tu archivo de routers
 
 const app = express();
-const PORT = process.env.PORT || 4000;
 
+// Crear contexto (si lo necesitas)
+const createContext = ({req, res}: trpcExpress.CreateExpressContextOptions) => ({});
+
+// Configurar el middleware de trpc
 app.use(
 	"/trpc",
 	trpcExpress.createExpressMiddleware({
@@ -14,6 +16,6 @@ app.use(
 	})
 );
 
-app.listen(PORT, () => {
-	console.log(`Servidor corriendo en http://localhost:${PORT}`);
+app.listen(4000, () => {
+	console.log("Servidor corriendo en http://localhost:4000");
 });
