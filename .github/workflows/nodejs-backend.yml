@@ -21,26 +21,26 @@ jobs:
         with:
           node-version: '16' # Define la versión de Node.js
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install dependencies in /backend
+        run: cd backend && npm install  # Cambia al directorio backend e instala las dependencias
 
       - name: Run TypeScript compiler
-        run: npm run build  # Si usas TypeScript, esto compilará el proyecto
+        run: cd backend && npm run build  # Si usas TypeScript, esto compilará el proyecto en /backend
 
       #- name: Run tests
-      #  run: npm test  # Asegúrate de tener tests en tu proyecto
+      #  run: cd backend && npm test  # Asegúrate de tener tests en el backend
 
       #- name: Lint code
-      #  run: npm run lint  # Si tienes configurado un linter (opcional)
+      #  run: cd backend && npm run lint  # Si tienes configurado un linter (opcional)
 
       - name: Start the server (for integration tests)
-        run: npm start &  # Inicia el servidor en segundo plano
+        run: cd backend && npm start &  # Inicia el servidor en segundo plano en /backend
 
       - name: Wait for the server to start
         run: sleep 10  # Espera 10 segundos para que el servidor se inicie
 
       #- name: Run Integration tests (if applicable)
-      #  run: npm run integration-test  # Si tienes pruebas de integración
+      #  run: cd backend && npm run integration-test  # Si tienes pruebas de integración
 
   deploy:
     runs-on: ubuntu-latest
@@ -55,8 +55,8 @@ jobs:
         with:
           node-version: '16'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install dependencies in /backend
+        run: cd backend && npm install  # Cambia al directorio backend e instala las dependencias
 
       - name: Deploy to server
         run:
