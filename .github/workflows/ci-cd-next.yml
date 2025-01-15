@@ -58,4 +58,4 @@ jobs:
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}  # Configura el token secreto de Vercel
           vercel-args: '--prod'  # Despliegue en producción
-          working-directory: ./  # Directorio raíz del proyecto
+          working-directory: ./tiendamd/  # Directorio raíz del proyecto
