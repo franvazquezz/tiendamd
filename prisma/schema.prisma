@@ -7,7 +7,6 @@ generator client {
 
 datasource db {
     provider = "postgresql"
-    url      = env("DATABASE_URL")
 }
 
 model Post {
@@ -17,4 +16,48 @@ model Post {
     updatedAt DateTime @updatedAt
 
     @@index([name])
+}
+
+model Student {
+    id        String    @id @default(uuid()) @db.Uuid
+    name      String
+    birthday  DateTime? @db.Date
+    telephone String?
+    day       String?
+    timetable String?
+
+    classes StudentClass[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Class {
+    id            String    @id @default(uuid()) @db.Uuid
+    className     String
+    assistance    Boolean[] @default([false, false, false, false])
+    classDay      DateTime? @db.Date
+    classPrice    Decimal
+    classPaid     Boolean   @default(false)
+    ovenName      String?
+    ovenPrice     String
+    ovenPaid      Boolean   @default(false)
+    materialName  String
+    materialPrice String
+    materialPaid  Boolean   @default(false)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    students StudentClass[]
+}
+
+model StudentClass {
+    studentId String @db.Uuid
+    classId   String @db.Uuid
+
+    student Student @relation(fields: [studentId], references: [id])
+    class   Class   @relation(fields: [classId], references: [id])
+
+    @@id([studentId, classId])
 }

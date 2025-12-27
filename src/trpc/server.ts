@@ -28,3 +28,6 @@ export const { trpc: api, HydrateClient } = createHydrationHelpers<AppRouter>(
   caller,
   getQueryClient
 );
+
+// Server-only caller for RSC/route handlers.
+export const serverCaller = caller;

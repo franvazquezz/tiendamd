@@ -1,3 +1,15 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+:root {
+  --md-primary: #a30d0d;
+  --md-secondary: #bb8377;
+  --md-sand: #fff4ef;
+  --md-plum: #582b39;
+  --md-ink: #1b0b0d;
+}
+
+body {
+  background: radial-gradient(120% 120% at 30% 20%, #fff4ef 0%, #f3d3c9 35%, #f6e7e1 60%, #fff4ef 100%);
+  color: var(--md-ink);
+  min-height: 100vh;
+}
