@@ -52,6 +52,8 @@ type CalendarEntry = {
   classDateLabel?: string;
 };
 
+const TIME_REGEX = /(\d{1,2}):(\d{2})/;
+
 const Button = ({
   children,
   variant = "primary",
@@ -73,7 +75,11 @@ const Button = ({
   };
 
   return (
-    <button className={`${base} ${variants[variant]}`} disabled={loading} {...props}>
+    <button
+      className={`${base} ${variants[variant]}`}
+      disabled={loading}
+      {...props}
+    >
       {loading ? <LuLoader2 className="h-4 w-4 animate-spin" /> : null}
       {children}
     </button>
@@ -81,17 +87,17 @@ const Button = ({
 };
 
 const StatCard = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-2xl bg-white/80 px-4 py-3 shadow-sm ring-1 ring-plum/10">
-    <p className="text-xs uppercase tracking-[0.08em] text-plum/70">{label}</p>
-    <p className="text-2xl font-semibold text-plum">{value}</p>
+  <div className="ring-plum/10 rounded-2xl bg-white/80 px-4 py-3 shadow-sm ring-1">
+    <p className="text-plum/70 text-xs tracking-[0.08em] uppercase">{label}</p>
+    <p className="text-plum text-2xl font-semibold">{value}</p>
   </div>
 );
 
 const ClassBadge = ({ cls }: { cls: Student["classes"][number] }) => (
-  <div className="rounded-xl border border-plum/10 bg-white/70 px-3 py-2 text-sm text-ink shadow-sm">
+  <div className="border-plum/10 text-ink rounded-xl border bg-white/70 px-3 py-2 text-sm shadow-sm">
     <div className="flex items-center justify-between gap-2">
-      <p className="font-semibold text-plum">{cls.className}</p>
-      <p className="text-xs text-plum/80">
+      <p className="text-plum font-semibold">{cls.className}</p>
+      <p className="text-plum/80 text-xs">
         {cls.classDay
           ? new Date(cls.classDay).toLocaleDateString("es-AR")
           : "Sin fecha"}
@@ -100,7 +106,7 @@ const ClassBadge = ({ cls }: { cls: Student["classes"][number] }) => (
     <div className="mt-1 flex items-center justify-between text-xs">
       <span>
         Precio:{" "}
-        <span className="font-semibold text-ink">
+        <span className="text-ink font-semibold">
           ${Number(cls.classPrice).toLocaleString("es-AR")}
         </span>
       </span>
@@ -131,13 +137,13 @@ const getDayFromString = (value?: string): DayOption | null => {
   const normalized = sanitizeDay(value.trim());
   return (
     WEEK_DAYS.find((day) =>
-      day.aliases.some((alias) => normalized.startsWith(alias))
+      day.aliases.some((alias) => normalized.startsWith(alias)),
     ) ?? null
   );
 };
 
 const parseTimeToMinutes = (time: string) => {
-  const match = time.match(/(\d{1,2}):(\d{2})/);
+  const match = TIME_REGEX.exec(time);
   if (!match) return Number.POSITIVE_INFINITY;
   const hours = Number.parseInt(match[1] ?? "0", 10);
   const minutes = Number.parseInt(match[2] ?? "0", 10);
@@ -147,13 +153,15 @@ const parseTimeToMinutes = (time: string) => {
 export function Dashboard() {
   const [search, setSearch] = useState("");
   const [studentForm, setStudentForm] = useState({ ...emptyStudent });
-  const [classDrafts, setClassDrafts] = useState<Record<string, ClassDraft>>({});
+  const [classDrafts, setClassDrafts] = useState<Record<string, ClassDraft>>(
+    {},
+  );
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   const utils = api.useUtils();
   const { data: students, isLoading } = api.students.list.useQuery(
     { search: search.trim() || undefined },
-    { refetchOnWindowFocus: false }
+    { refetchOnWindowFocus: false },
   );
 
   const stats = useMemo(() => {
@@ -213,7 +221,9 @@ export function Dashboard() {
       studentId,
       className: draft.className,
       classPrice: Number(draft.classPrice),
-      classDay: draft.classDay ? new Date(draft.classDay).toISOString() : undefined,
+      classDay: draft.classDay
+        ? new Date(draft.classDay).toISOString()
+        : undefined,
       classPaid: draft.classPaid,
     });
   };
@@ -223,7 +233,7 @@ export function Dashboard() {
 
     students?.forEach((student) => {
       const fallbackDay = getDayFromString(student.day ?? undefined);
-      const fallbackTime = student.timetable?.trim() || "Sin horario";
+      const fallbackTime = student.timetable?.trim() ?? "Sin horario";
 
       if (student.classes.length === 0) {
         entries.push({
@@ -238,7 +248,7 @@ export function Dashboard() {
       student.classes.forEach((cls) => {
         const classDate = cls.classDay ? new Date(cls.classDay) : null;
         const mappedDay = classDate
-          ? WEEK_DAYS.find((day) => day.value === classDate.getDay()) ?? null
+          ? (WEEK_DAYS.find((day) => day.value === classDate.getDay()) ?? null)
           : fallbackDay;
 
         entries.push({
@@ -263,7 +273,9 @@ export function Dashboard() {
   }, [students]);
 
   const calendarTimes = useMemo(() => {
-    const times = Array.from(new Set(calendarEntries.map((entry) => entry.time)));
+    const times = Array.from(
+      new Set(calendarEntries.map((entry) => entry.time)),
+    );
     return times.sort((a, b) => parseTimeToMinutes(a) - parseTimeToMinutes(b));
   }, [calendarEntries]);
 
@@ -271,7 +283,7 @@ export function Dashboard() {
     Array<{ value: CalendarDayKey; label: string }>
   >(() => {
     const needsUnscheduled = calendarEntries.some(
-      (entry) => entry.day === "unscheduled"
+      (entry) => entry.day === "unscheduled",
     );
     const base = WEEK_DAYS.map((day) => ({
       value: day.value,
@@ -284,19 +296,19 @@ export function Dashboard() {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10">
-      <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-primary via-plum to-secondary p-[1px] shadow-xl">
-        <div className="flex flex-col gap-6 rounded-[28px] bg-sand/95 px-8 py-10">
-          <p className="text-sm uppercase tracking-[0.12em] text-plum/70">
+      <section className="from-primary via-plum to-secondary overflow-hidden rounded-3xl bg-linear-to-r p-px shadow-xl">
+        <div className="bg-sand/95 flex flex-col gap-6 rounded-[28px] px-8 py-10">
+          <p className="text-plum/70 text-sm tracking-[0.12em] uppercase">
             MD Cerámica
           </p>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-3xl font-black text-plum sm:text-4xl">
+              <h1 className="text-plum text-3xl font-black sm:text-4xl">
                 Dashboard de alumnos y clases
               </h1>
-              <p className="mt-2 text-sm text-plum/80">
-                Controla alumnos, pagos y cronograma en un único panel, ahora con
-                stack Next.js + tRPC + Prisma.
+              <p className="text-plum/80 mt-2 text-sm">
+                Controla alumnos, pagos y cronograma en un único panel, ahora
+                con stack Next.js + tRPC + Prisma.
               </p>
             </div>
             <div className="flex gap-3">
@@ -304,7 +316,10 @@ export function Dashboard() {
                 label="Alumnos activos"
                 value={stats.totalStudents.toString()}
               />
-              <StatCard label="Clases cargadas" value={stats.totalClasses.toString()} />
+              <StatCard
+                label="Clases cargadas"
+                value={stats.totalClasses.toString()}
+              />
             </div>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -312,54 +327,67 @@ export function Dashboard() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar alumno..."
-              className="w-full rounded-xl border border-plum/20 bg-white/80 px-4 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+              className="border-plum/20 text-ink ring-primary/20 w-full rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
             />
           </div>
         </div>
       </section>
 
-      <section className="grid gap-6 rounded-3xl bg-white/80 p-6 shadow-lg ring-1 ring-plum/10 md:grid-cols-2">
+      <section className="ring-plum/10 grid gap-6 rounded-3xl bg-white/80 p-6 shadow-lg ring-1 md:grid-cols-2">
         <div className="flex flex-col gap-3">
-          <p className="text-xs uppercase tracking-[0.12em] text-plum/70">
+          <p className="text-plum/70 text-xs tracking-[0.12em] uppercase">
             Nuevo alumno
           </p>
-          <h2 className="text-2xl font-semibold text-plum">Registrar</h2>
-          <p className="text-sm text-plum/80">
-            Crea alumnos con su información básica. Los nombres se guardan capitalizados
-            automáticamente.
+          <h2 className="text-plum text-2xl font-semibold">Registrar</h2>
+          <p className="text-plum/80 text-sm">
+            Crea alumnos con su información básica. Los nombres se guardan
+            capitalizados automáticamente.
           </p>
         </div>
-        <form className="grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={handleCreateStudent}>
+        <form
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+          onSubmit={handleCreateStudent}
+        >
           <input
             required
             value={studentForm.name}
-            onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
+            onChange={(e) =>
+              setStudentForm({ ...studentForm, name: e.target.value })
+            }
             placeholder="Nombre completo"
-            className="rounded-xl border border-plum/20 bg-white/80 px-4 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
           />
           <input
             type="date"
             value={studentForm.birthday}
-            onChange={(e) => setStudentForm({ ...studentForm, birthday: e.target.value })}
-            className="rounded-xl border border-plum/20 bg-white/80 px-4 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            onChange={(e) =>
+              setStudentForm({ ...studentForm, birthday: e.target.value })
+            }
+            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
           />
           <input
             value={studentForm.telephone}
-            onChange={(e) => setStudentForm({ ...studentForm, telephone: e.target.value })}
+            onChange={(e) =>
+              setStudentForm({ ...studentForm, telephone: e.target.value })
+            }
             placeholder="Teléfono"
-            className="rounded-xl border border-plum/20 bg-white/80 px-4 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
           />
           <input
             value={studentForm.day}
-            onChange={(e) => setStudentForm({ ...studentForm, day: e.target.value })}
+            onChange={(e) =>
+              setStudentForm({ ...studentForm, day: e.target.value })
+            }
             placeholder="Día preferido"
-            className="rounded-xl border border-plum/20 bg-white/80 px-4 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
           />
           <input
             value={studentForm.timetable}
-            onChange={(e) => setStudentForm({ ...studentForm, timetable: e.target.value })}
+            onChange={(e) =>
+              setStudentForm({ ...studentForm, timetable: e.target.value })
+            }
             placeholder="Horario"
-            className="rounded-xl border border-plum/20 bg-white/80 px-4 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
           />
           <div className="flex items-center justify-end sm:col-span-2">
             <Button type="submit" loading={createStudent.isPending}>
@@ -373,18 +401,22 @@ export function Dashboard() {
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.12em] text-plum/70">Alumnos</p>
-            <h2 className="text-2xl font-semibold text-plum">Listado y clases</h2>
+            <p className="text-plum/70 text-xs tracking-[0.12em] uppercase">
+              Alumnos
+            </p>
+            <h2 className="text-plum text-2xl font-semibold">
+              Listado y clases
+            </h2>
           </div>
           <div className="flex items-center gap-3">
-            {isLoading && <p className="text-sm text-plum/60">Cargando...</p>}
-            <div className="flex items-center gap-2 rounded-full border border-plum/15 bg-plum/5 p-1">
+            {isLoading && <p className="text-plum/60 text-sm">Cargando...</p>}
+            <div className="border-plum/15 bg-plum/5 flex items-center gap-2 rounded-full border p-1">
               <button
                 type="button"
                 onClick={() => setViewMode("list")}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                   viewMode === "list"
-                    ? "bg-white text-plum shadow-sm ring-1 ring-plum/20"
+                    ? "text-plum ring-plum/20 bg-white shadow-sm ring-1"
                     : "text-plum/70 hover:text-plum"
                 }`}
               >
@@ -395,7 +427,7 @@ export function Dashboard() {
                 onClick={() => setViewMode("calendar")}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                   viewMode === "calendar"
-                    ? "bg-white text-plum shadow-sm ring-1 ring-plum/20"
+                    ? "text-plum ring-plum/20 bg-white shadow-sm ring-1"
                     : "text-plum/70 hover:text-plum"
                 }`}
               >
@@ -406,16 +438,16 @@ export function Dashboard() {
         </div>
 
         {viewMode === "calendar" ? (
-          <div className="rounded-2xl border border-plum/15 bg-white/90 p-4 shadow-md">
+          <div className="border-plum/15 rounded-2xl border bg-white/90 p-4 shadow-md">
             {calendarEntries.length === 0 && !isLoading ? (
-              <p className="text-sm text-plum/70">
+              <p className="text-plum/70 text-sm">
                 No hay alumnos o clases para mostrar en el calendario todavía.
               </p>
             ) : (
               <div className="overflow-x-auto">
-                <div className="min-w-[960px]">
+                <div className="min-w-240">
                   <div
-                    className="grid border-b border-plum/10 bg-plum/5 text-xs font-semibold uppercase tracking-[0.08em] text-plum/80"
+                    className="border-plum/10 bg-plum/5 text-plum/80 grid border-b text-xs font-semibold tracking-[0.08em] uppercase"
                     style={{
                       gridTemplateColumns: `140px repeat(${calendarDays.length}, minmax(0,1fr))`,
                     }}
@@ -424,7 +456,7 @@ export function Dashboard() {
                     {calendarDays.map((day) => (
                       <div
                         key={day.value}
-                        className="border-l border-plum/10 px-3 py-3 text-center"
+                        className="border-plum/10 border-l px-3 py-3 text-center"
                       >
                         {day.label}
                       </div>
@@ -433,40 +465,43 @@ export function Dashboard() {
                   {calendarTimes.map((time) => (
                     <div
                       key={time}
-                      className="grid border-b border-plum/5 last:border-b-0"
+                      className="border-plum/5 grid border-b last:border-b-0"
                       style={{
                         gridTemplateColumns: `140px repeat(${calendarDays.length}, minmax(0,1fr))`,
                       }}
                     >
-                      <div className="border-r border-plum/5 bg-plum/5 px-3 py-3 text-sm font-semibold text-plum">
+                      <div className="border-plum/5 bg-plum/5 text-plum border-r px-3 py-3 text-sm font-semibold">
                         {time}
                       </div>
                       {calendarDays.map((day) => {
                         const matches = calendarEntries.filter(
-                          (entry) => entry.day === day.value && entry.time === time
+                          (entry) =>
+                            entry.day === day.value && entry.time === time,
                         );
                         return (
                           <div
                             key={`${time}-${day.value}`}
-                            className="min-h-[96px] border-l border-plum/5 px-3 py-2"
+                            className="border-plum/5 min-h-24 border-l px-3 py-2"
                           >
                             {matches.length === 0 ? (
-                              <p className="text-xs text-plum/40">—</p>
+                              <p className="text-plum/40 text-xs">—</p>
                             ) : (
                               <div className="flex flex-col gap-2">
                                 {matches.map((match, idx) => (
                                   <div
                                     key={`${match.student}-${match.className ?? "sin-clase"}-${idx}`}
-                                    className="rounded-lg border border-plum/20 bg-primary/5 px-3 py-2 text-xs text-plum shadow-sm"
+                                    className="border-plum/20 bg-primary/5 text-plum rounded-lg border px-3 py-2 text-xs shadow-sm"
                                   >
-                                    <p className="text-sm font-semibold text-plum">
+                                    <p className="text-plum text-sm font-semibold">
                                       {match.student}
                                     </p>
-                                    <p className="text-[11px] text-plum/70">
-                                      {match.className ? `Clase: ${match.className}` : "Sin clase asociada"}
+                                    <p className="text-plum/70 text-[11px]">
+                                      {match.className
+                                        ? `Clase: ${match.className}`
+                                        : "Sin clase asociada"}
                                     </p>
                                     {match.classDateLabel ? (
-                                      <p className="text-[11px] text-plum/60">
+                                      <p className="text-plum/60 text-[11px]">
                                         Fecha: {match.classDateLabel}
                                       </p>
                                     ) : null}
@@ -490,22 +525,28 @@ export function Dashboard() {
               return (
                 <article
                   key={student.id}
-                  className="flex flex-col gap-4 rounded-2xl border border-plum/15 bg-white/85 p-4 shadow-md"
+                  className="border-plum/15 flex flex-col gap-4 rounded-2xl border bg-white/85 p-4 shadow-md"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-lg font-semibold text-plum">{student.name}</h3>
-                      <p className="text-xs text-plum/70">
-                        {student.day ? `Día: ${student.day}` : "Sin día asignado"}
+                      <h3 className="text-plum text-lg font-semibold">
+                        {student.name}
+                      </h3>
+                      <p className="text-plum/70 text-xs">
+                        {student.day
+                          ? `Día: ${student.day}`
+                          : "Sin día asignado"}
                       </p>
                       {student.telephone ? (
-                        <p className="text-xs text-plum/70">Tel: {student.telephone}</p>
+                        <p className="text-plum/70 text-xs">
+                          Tel: {student.telephone}
+                        </p>
                       ) : null}
                     </div>
                     <div className="flex gap-2">
                       <Link
                         href={`/students/${student.id}`}
-                        className="inline-flex items-center gap-2 rounded-full border border-plum/20 px-3 py-1.5 text-xs font-semibold text-plum transition hover:border-plum/40 hover:-translate-y-0.5"
+                        className="border-plum/20 text-plum hover:border-plum/40 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
                       >
                         Ver detalle
                       </Link>
@@ -520,17 +561,23 @@ export function Dashboard() {
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs uppercase tracking-[0.1em] text-plum/70">Clases</p>
+                    <p className="text-plum/70 text-xs tracking-widest uppercase">
+                      Clases
+                    </p>
                     <div className="flex flex-col gap-2">
                       {student.classes.length === 0 ? (
-                        <p className="text-sm text-plum/60">Sin clases asociadas aún.</p>
+                        <p className="text-plum/60 text-sm">
+                          Sin clases asociadas aún.
+                        </p>
                       ) : (
                         student.classes.map((cls) => (
                           <div key={cls.id} className="flex items-start gap-3">
                             <ClassBadge cls={cls} />
                             <Button
                               variant="ghost"
-                              onClick={() => deleteClass.mutate({ classId: cls.id })}
+                              onClick={() =>
+                                deleteClass.mutate({ classId: cls.id })
+                              }
                               loading={deleteClass.isPending}
                             >
                               <LuTrash2 className="h-4 w-4" />
@@ -541,8 +588,8 @@ export function Dashboard() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-secondary/40 bg-secondary/10 p-3">
-                    <p className="text-xs uppercase tracking-[0.1em] text-plum/70">
+                  <div className="border-secondary/40 bg-secondary/10 rounded-xl border p-3">
+                    <p className="text-plum/70 text-xs tracking-widest uppercase">
                       Agregar clase
                     </p>
                     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -551,11 +598,14 @@ export function Dashboard() {
                         onChange={(e) =>
                           setClassDrafts((prev) => ({
                             ...prev,
-                            [student.id]: { ...(prev[student.id] ?? emptyClassDraft), className: e.target.value },
+                            [student.id]: {
+                              ...(prev[student.id] ?? emptyClassDraft),
+                              className: e.target.value,
+                            },
                           }))
                         }
                         placeholder="Nombre"
-                        className="rounded-lg border border-plum/20 bg-white px-3 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+                        className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
                       />
                       <input
                         type="number"
@@ -563,11 +613,14 @@ export function Dashboard() {
                         onChange={(e) =>
                           setClassDrafts((prev) => ({
                             ...prev,
-                            [student.id]: { ...(prev[student.id] ?? emptyClassDraft), classPrice: e.target.value },
+                            [student.id]: {
+                              ...(prev[student.id] ?? emptyClassDraft),
+                              classPrice: e.target.value,
+                            },
                           }))
                         }
                         placeholder="Precio"
-                        className="rounded-lg border border-plum/20 bg-white px-3 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+                        className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
                       />
                       <input
                         type="date"
@@ -575,22 +628,28 @@ export function Dashboard() {
                         onChange={(e) =>
                           setClassDrafts((prev) => ({
                             ...prev,
-                            [student.id]: { ...(prev[student.id] ?? emptyClassDraft), classDay: e.target.value },
+                            [student.id]: {
+                              ...(prev[student.id] ?? emptyClassDraft),
+                              classDay: e.target.value,
+                            },
                           }))
                         }
-                        className="rounded-lg border border-plum/20 bg-white px-3 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+                        className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
                       />
-                      <label className="flex items-center gap-2 text-sm text-plum">
+                      <label className="text-plum flex items-center gap-2 text-sm">
                         <input
                           type="checkbox"
                           checked={draft.classPaid}
                           onChange={(e) =>
                             setClassDrafts((prev) => ({
                               ...prev,
-                              [student.id]: { ...(prev[student.id] ?? emptyClassDraft), classPaid: e.target.checked },
+                              [student.id]: {
+                                ...(prev[student.id] ?? emptyClassDraft),
+                                classPaid: e.target.checked,
+                              },
                             }))
                           }
-                          className="h-4 w-4 rounded border-plum/30 text-primary focus:ring-primary"
+                          className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
                         />
                         Pagado
                       </label>
@@ -610,8 +669,9 @@ export function Dashboard() {
               );
             })}
             {!isLoading && (students?.length ?? 0) === 0 ? (
-              <p className="rounded-2xl border border-dashed border-plum/30 bg-white/60 p-6 text-center text-sm text-plum/70">
-                Aún no hay alumnos cargados. Crea el primero para empezar a registrar clases.
+              <p className="border-plum/30 text-plum/70 rounded-2xl border border-dashed bg-white/60 p-6 text-center text-sm">
+                Aún no hay alumnos cargados. Crea el primero para empezar a
+                registrar clases.
               </p>
             ) : null}
           </div>

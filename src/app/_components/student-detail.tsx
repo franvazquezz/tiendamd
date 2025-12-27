@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { LuArrowLeft, LuLoader2, LuPlus, LuSave } from "react-icons/lu";
 
-import { api, type RouterOutputs } from "~/trpc/react";
-
-type Student = NonNullable<RouterOutputs["students"]["byId"]>;
+import { api } from "~/trpc/react";
 type ClassDraft = {
   className: string;
   classPrice: string;
@@ -32,16 +31,21 @@ const Button = ({
     ghost: "border border-plum/20 text-plum hover:bg-plum/5",
   };
   return (
-    <button className={`${base} ${variants[variant]} ${className}`} disabled={loading} {...props}>
+    <button
+      className={`${base} ${variants[variant]} ${className}`}
+      disabled={loading}
+      {...props}
+    >
       {loading ? <LuLoader2 className="h-4 w-4 animate-spin" /> : null}
       {children}
     </button>
   );
 };
 
-export function StudentDetail({ id }: { id: string }) {
+export function StudentDetail() {
+  const { id } = useParams();
   const utils = api.useUtils();
-  const { data, isLoading } = api.students.byId.useQuery({ id });
+  const { data, isLoading } = api.students.byId.useQuery({ id: String(id) });
 
   const [form, setForm] = useState({
     name: "",
@@ -51,7 +55,9 @@ export function StudentDetail({ id }: { id: string }) {
     timetable: "",
   });
 
-  const [classDrafts, setClassDrafts] = useState<Record<string, ClassDraft>>({});
+  const [classDrafts, setClassDrafts] = useState<Record<string, ClassDraft>>(
+    {},
+  );
   const [newClass, setNewClass] = useState<ClassDraft>({
     className: "",
     classPrice: "",
@@ -63,7 +69,9 @@ export function StudentDetail({ id }: { id: string }) {
     if (!data) return;
     setForm({
       name: data.name ?? "",
-      birthday: data.birthday ? new Date(data.birthday).toISOString().slice(0, 10) : "",
+      birthday: data.birthday
+        ? new Date(data.birthday).toISOString().slice(0, 10)
+        : "",
       telephone: data.telephone ?? "",
       day: data.day ?? "",
       timetable: data.timetable ?? "",
@@ -73,7 +81,9 @@ export function StudentDetail({ id }: { id: string }) {
       drafts[cls.id] = {
         className: cls.className ?? "",
         classPrice: cls.classPrice ? String(cls.classPrice) : "",
-        classDay: cls.classDay ? new Date(cls.classDay).toISOString().slice(0, 10) : "",
+        classDay: cls.classDay
+          ? new Date(cls.classDay).toISOString().slice(0, 10)
+          : "",
         classPaid: Boolean(cls.classPaid),
       };
     });
@@ -82,21 +92,21 @@ export function StudentDetail({ id }: { id: string }) {
 
   const updateStudent = api.students.update.useMutation({
     onSuccess: async () => {
-      await utils.students.byId.invalidate({ id });
+      await utils.students.byId.invalidate({ id: String(id) });
       await utils.students.list.invalidate();
     },
   });
 
   const updateClass = api.students.updateClass.useMutation({
     onSuccess: async () => {
-      await utils.students.byId.invalidate({ id });
+      await utils.students.byId.invalidate({ id: String(id) });
       await utils.students.list.invalidate();
     },
   });
 
   const addClass = api.students.addClass.useMutation({
     onSuccess: async (_data, variables) => {
-      await utils.students.byId.invalidate({ id });
+      await utils.students.byId.invalidate({ id: String(id) });
       await utils.students.list.invalidate();
       setNewClass({
         className: "",
@@ -121,7 +131,7 @@ export function StudentDetail({ id }: { id: string }) {
     if (!data) return null;
     const totalAmount = data.classes.reduce(
       (sum, cls) => sum + Number(cls.classPrice ?? 0),
-      0
+      0,
     );
     const paidAmount = data.classes
       .filter((cls) => cls.classPaid)
@@ -139,7 +149,7 @@ export function StudentDetail({ id }: { id: string }) {
 
   if (isLoading) {
     return (
-      <div className="mx-auto flex max-w-4xl items-center justify-center py-10 text-plum">
+      <div className="text-plum mx-auto flex max-w-4xl items-center justify-center py-10">
         <LuLoader2 className="h-5 w-5 animate-spin" />
         <span className="ml-2 text-sm">Cargando alumno...</span>
       </div>
@@ -148,9 +158,9 @@ export function StudentDetail({ id }: { id: string }) {
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-3xl rounded-2xl border border-plum/20 bg-white/80 p-6 text-center text-plum">
+      <div className="border-plum/20 text-plum mx-auto max-w-3xl rounded-2xl border bg-white/80 p-6 text-center">
         <p className="text-lg font-semibold">Alumno no encontrado</p>
-        <Link href="/" className="mt-4 inline-block text-primary underline">
+        <Link href="/" className="text-primary mt-4 inline-block underline">
           Volver al dashboard
         </Link>
       </div>
@@ -160,7 +170,7 @@ export function StudentDetail({ id }: { id: string }) {
   const handleSaveStudent = (e: React.FormEvent) => {
     e.preventDefault();
     updateStudent.mutate({
-      id,
+      id: String(id),
       name: form.name || undefined,
       birthday: form.birthday || undefined,
       telephone: form.telephone || undefined,
@@ -176,7 +186,9 @@ export function StudentDetail({ id }: { id: string }) {
       classId,
       className: draft.className,
       classPrice: Number(draft.classPrice || 0),
-      classDay: draft.classDay ? new Date(draft.classDay).toISOString() : undefined,
+      classDay: draft.classDay
+        ? new Date(draft.classDay).toISOString()
+        : undefined,
       classPaid: draft.classPaid,
     });
   };
@@ -185,10 +197,12 @@ export function StudentDetail({ id }: { id: string }) {
     e.preventDefault();
     if (!newClass.className || !newClass.classPrice) return;
     addClass.mutate({
-      studentId: id,
+      studentId: String(id),
       className: newClass.className,
       classPrice: Number(newClass.classPrice),
-      classDay: newClass.classDay ? new Date(newClass.classDay).toISOString() : undefined,
+      classDay: newClass.classDay
+        ? new Date(newClass.classDay).toISOString()
+        : undefined,
       classPaid: newClass.classPaid,
     });
   };
@@ -198,77 +212,85 @@ export function StudentDetail({ id }: { id: string }) {
       <div className="flex items-center justify-between">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-plum transition hover:text-primary"
+          className="text-plum hover:text-primary inline-flex items-center gap-2 text-sm font-semibold transition"
         >
           <LuArrowLeft className="h-4 w-4" />
           Volver al dashboard
         </Link>
-        <p className="text-xs uppercase tracking-[0.12em] text-plum/70">Alumno</p>
+        <p className="text-plum/70 text-xs tracking-[0.12em] uppercase">
+          Alumno
+        </p>
       </div>
 
-      <div className="rounded-3xl bg-white/85 p-6 shadow-lg ring-1 ring-plum/10">
-        <div className="flex flex-col gap-2 border-b border-plum/10 pb-4 md:flex-row md:items-center md:justify-between">
+      <div className="ring-plum/10 rounded-3xl bg-white/85 p-6 shadow-lg ring-1">
+        <div className="border-plum/10 flex flex-col gap-2 border-b pb-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.1em] text-plum/70">Detalles</p>
-            <h1 className="text-3xl font-black text-plum">{data.name}</h1>
+            <p className="text-plum/70 text-xs tracking-widest uppercase">
+              Detalles
+            </p>
+            <h1 className="text-plum text-3xl font-black">{data.name}</h1>
           </div>
           {studentStats ? (
             <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-              <span className="rounded-xl bg-primary/10 px-3 py-2 font-semibold text-primary">
+              <span className="bg-primary/10 text-primary rounded-xl px-3 py-2 font-semibold">
                 Clases: {studentStats.classes}
               </span>
-              <span className="rounded-xl bg-secondary/20 px-3 py-2 font-semibold text-plum">
+              <span className="bg-secondary/20 text-plum rounded-xl px-3 py-2 font-semibold">
                 Pagadas: {studentStats.paid}
               </span>
-              <span className="rounded-xl bg-white px-3 py-2 font-semibold text-plum/70 ring-1 ring-plum/15">
+              <span className="text-plum/70 ring-plum/15 rounded-xl bg-white px-3 py-2 font-semibold ring-1">
                 Pendientes: {studentStats.pending}
               </span>
-              <span className="rounded-xl bg-white px-3 py-2 font-semibold text-plum/80 ring-1 ring-plum/10">
+              <span className="text-plum/80 ring-plum/10 rounded-xl bg-white px-3 py-2 font-semibold ring-1">
                 $ Total: {studentStats.totalAmount.toLocaleString("es-AR")}
               </span>
-              <span className="rounded-xl bg-white px-3 py-2 font-semibold text-primary/80 ring-1 ring-primary/20">
+              <span className="text-primary/80 ring-primary/20 rounded-xl bg-white px-3 py-2 font-semibold ring-1">
                 $ Pagado: {studentStats.paidAmount.toLocaleString("es-AR")}
               </span>
-              <span className="rounded-xl bg-white px-3 py-2 font-semibold text-plum/70 ring-1 ring-plum/15">
-                $ Pendiente: {studentStats.pendingAmount.toLocaleString("es-AR")}
+              <span className="text-plum/70 ring-plum/15 rounded-xl bg-white px-3 py-2 font-semibold ring-1">
+                $ Pendiente:{" "}
+                {studentStats.pendingAmount.toLocaleString("es-AR")}
               </span>
             </div>
           ) : null}
         </div>
 
-        <form className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2" onSubmit={handleSaveStudent}>
+        <form
+          className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2"
+          onSubmit={handleSaveStudent}
+        >
           <input
             required
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Nombre completo"
-            className="rounded-xl border border-plum/20 bg-white px-4 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
           />
           <input
             type="date"
             value={form.birthday}
             onChange={(e) => setForm({ ...form, birthday: e.target.value })}
-            className="rounded-xl border border-plum/20 bg-white px-4 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
           />
           <input
             value={form.telephone}
             onChange={(e) => setForm({ ...form, telephone: e.target.value })}
             placeholder="Teléfono"
-            className="rounded-xl border border-plum/20 bg-white px-4 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
           />
           <input
             value={form.day}
             onChange={(e) => setForm({ ...form, day: e.target.value })}
             placeholder="Día preferido"
-            className="rounded-xl border border-plum/20 bg-white px-4 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
           />
           <input
             value={form.timetable}
             onChange={(e) => setForm({ ...form, timetable: e.target.value })}
             placeholder="Horario"
-            className="rounded-xl border border-plum/20 bg-white px-4 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
           />
-          <div className="md:col-span-2 flex justify-end">
+          <div className="flex justify-end md:col-span-2">
             <Button type="submit" loading={updateStudent.isPending}>
               <LuSave className="h-4 w-4" />
               Guardar alumno
@@ -277,52 +299,66 @@ export function StudentDetail({ id }: { id: string }) {
         </form>
       </div>
 
-      <section className="space-y-4 rounded-3xl bg-white/85 p-6 shadow-lg ring-1 ring-plum/10">
+      <section className="ring-plum/10 space-y-4 rounded-3xl bg-white/85 p-6 shadow-lg ring-1">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.1em] text-plum/70">Clases</p>
-            <h2 className="text-2xl font-semibold text-plum">Clases del alumno</h2>
+            <p className="text-plum/70 text-xs tracking-widest uppercase">
+              Clases
+            </p>
+            <h2 className="text-plum text-2xl font-semibold">
+              Clases del alumno
+            </h2>
           </div>
           {updateClass.isPending ? (
-            <span className="text-xs text-plum/70">Guardando cambios...</span>
+            <span className="text-plum/70 text-xs">Guardando cambios...</span>
           ) : null}
         </div>
 
         <form
-          className="grid grid-cols-1 gap-3 rounded-2xl border border-secondary/30 bg-secondary/10 p-4 md:grid-cols-5"
+          className="border-secondary/30 bg-secondary/10 grid grid-cols-1 gap-3 rounded-2xl border p-4 md:grid-cols-5"
           onSubmit={handleAddClass}
         >
-          <div className="md:col-span-5 flex items-center justify-between">
-            <p className="text-sm font-semibold text-plum">Agregar nueva clase</p>
+          <div className="flex items-center justify-between md:col-span-5">
+            <p className="text-plum text-sm font-semibold">
+              Agregar nueva clase
+            </p>
             {addClass.isPending ? (
-              <span className="text-xs text-plum/60">Guardando...</span>
+              <span className="text-plum/60 text-xs">Guardando...</span>
             ) : null}
           </div>
           <input
             value={newClass.className}
-            onChange={(e) => setNewClass({ ...newClass, className: e.target.value })}
+            onChange={(e) =>
+              setNewClass({ ...newClass, className: e.target.value })
+            }
             placeholder="Nombre"
-            className="rounded-lg border border-plum/20 bg-white px-3 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
           />
           <input
             type="number"
             value={newClass.classPrice}
-            onChange={(e) => setNewClass({ ...newClass, classPrice: e.target.value })}
+            onChange={(e) =>
+              setNewClass({ ...newClass, classPrice: e.target.value })
+            }
             placeholder="Precio"
-            className="rounded-lg border border-plum/20 bg-white px-3 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
           />
           <input
             type="date"
             value={newClass.classDay}
-            onChange={(e) => setNewClass({ ...newClass, classDay: e.target.value })}
-            className="rounded-lg border border-plum/20 bg-white px-3 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+            onChange={(e) =>
+              setNewClass({ ...newClass, classDay: e.target.value })
+            }
+            className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
           />
-          <label className="flex items-center gap-2 text-sm text-plum">
+          <label className="text-plum flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={newClass.classPaid}
-              onChange={(e) => setNewClass({ ...newClass, classPaid: e.target.checked })}
-              className="h-4 w-4 rounded border-plum/30 text-primary focus:ring-primary"
+              onChange={(e) =>
+                setNewClass({ ...newClass, classPaid: e.target.checked })
+              }
+              className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
             />
             Pagado
           </label>
@@ -335,7 +371,7 @@ export function StudentDetail({ id }: { id: string }) {
         </form>
 
         {data.classes.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-plum/20 bg-white/70 p-4 text-sm text-plum/70">
+          <p className="border-plum/20 text-plum/70 rounded-xl border border-dashed bg-white/70 p-4 text-sm">
             Este alumno aún no tiene clases cargadas.
           </p>
         ) : (
@@ -350,12 +386,15 @@ export function StudentDetail({ id }: { id: string }) {
               return (
                 <div
                   key={cls.id}
-                  className="rounded-2xl border border-plum/15 bg-secondary/10 p-4 shadow-sm"
+                  className="border-plum/15 bg-secondary/10 rounded-2xl border p-4 shadow-sm"
                 >
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-lg font-semibold text-plum">{cls.className}</h3>
-                    <span className="text-xs text-plum/60">
-                      Creado el {new Date(cls.createdAt).toLocaleDateString("es-AR")}
+                    <h3 className="text-plum text-lg font-semibold">
+                      {cls.className}
+                    </h3>
+                    <span className="text-plum/60 text-xs">
+                      Creado el{" "}
+                      {new Date(cls.createdAt).toLocaleDateString("es-AR")}
                     </span>
                   </div>
                   <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -364,11 +403,14 @@ export function StudentDetail({ id }: { id: string }) {
                       onChange={(e) =>
                         setClassDrafts((prev) => ({
                           ...prev,
-                          [cls.id]: { ...(prev[cls.id] ?? draft), className: e.target.value },
+                          [cls.id]: {
+                            ...(prev[cls.id] ?? draft),
+                            className: e.target.value,
+                          },
                         }))
                       }
                       placeholder="Nombre"
-                      className="rounded-lg border border-plum/20 bg-white px-3 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
                     />
                     <input
                       type="number"
@@ -376,11 +418,14 @@ export function StudentDetail({ id }: { id: string }) {
                       onChange={(e) =>
                         setClassDrafts((prev) => ({
                           ...prev,
-                          [cls.id]: { ...(prev[cls.id] ?? draft), classPrice: e.target.value },
+                          [cls.id]: {
+                            ...(prev[cls.id] ?? draft),
+                            classPrice: e.target.value,
+                          },
                         }))
                       }
                       placeholder="Precio"
-                      className="rounded-lg border border-plum/20 bg-white px-3 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
                     />
                     <input
                       type="date"
@@ -388,22 +433,28 @@ export function StudentDetail({ id }: { id: string }) {
                       onChange={(e) =>
                         setClassDrafts((prev) => ({
                           ...prev,
-                          [cls.id]: { ...(prev[cls.id] ?? draft), classDay: e.target.value },
+                          [cls.id]: {
+                            ...(prev[cls.id] ?? draft),
+                            classDay: e.target.value,
+                          },
                         }))
                       }
-                      className="rounded-lg border border-plum/20 bg-white px-3 py-2 text-sm text-ink outline-none ring-primary/20 transition focus:ring-2"
+                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
                     />
-                    <label className="flex items-center gap-2 text-sm text-plum">
+                    <label className="text-plum flex items-center gap-2 text-sm">
                       <input
                         type="checkbox"
                         checked={draft.classPaid}
                         onChange={(e) =>
                           setClassDrafts((prev) => ({
                             ...prev,
-                            [cls.id]: { ...(prev[cls.id] ?? draft), classPaid: e.target.checked },
+                            [cls.id]: {
+                              ...(prev[cls.id] ?? draft),
+                              classPaid: e.target.checked,
+                            },
                           }))
                         }
-                        className="h-4 w-4 rounded border-plum/30 text-primary focus:ring-primary"
+                        className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
                       />
                       Pagado
                     </label>
