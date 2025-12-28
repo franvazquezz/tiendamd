@@ -2,16 +2,12 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { notifications } from "@mantine/notifications";
 import { useEffect, useMemo, useState } from "react";
 import { LuArrowLeft, LuLoader2, LuPlus, LuSave } from "react-icons/lu";
 
 import { api } from "~/trpc/react";
-type ClassDraft = {
-  className: string;
-  classPrice: string;
-  classDay: string;
-  classPaid: boolean;
-};
+import { type ClassFormState, type StudentFormState } from "~/types/students";
 
 const Button = ({
   children,
@@ -44,26 +40,49 @@ const Button = ({
 
 export function StudentDetail() {
   const { id } = useParams();
+  const studentId = Number(id);
+  const isValidId = Number.isFinite(studentId);
   const utils = api.useUtils();
-  const { data, isLoading } = api.students.byId.useQuery({ id: String(id) });
+  const { data, isLoading } = api.students.byId.useQuery(
+    { id: studentId },
+    { enabled: isValidId },
+  );
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<StudentFormState>({
     name: "",
     birthday: "",
     telephone: "",
     day: "",
-    timetable: "",
+    timetable: undefined,
   });
 
-  const [classDrafts, setClassDrafts] = useState<Record<string, ClassDraft>>(
-    {},
-  );
-  const [newClass, setNewClass] = useState<ClassDraft>({
+  const [classDrafts, setClassDrafts] = useState<
+    Record<number, ClassFormState>
+  >({});
+  const [newClass, setNewClass] = useState<ClassFormState>({
     className: "",
     classPrice: "",
     classDay: "",
     classPaid: false,
+    monthId: null,
+    assistance: false,
+    ovenName: "",
+    ovenPrice: "",
+    ovenPaid: false,
+    materialName: "",
+    materialPrice: "",
+    materialPaid: false,
   });
+  const [newMonth, setNewMonth] = useState("");
+  const [showEditDetails, setShowEditDetails] = useState(false);
+  const [showAddMonth, setShowAddMonth] = useState(false);
+  const [showAddClass, setShowAddClass] = useState(false);
+
+  const notify = (type: "success" | "error", message: string) =>
+    notifications.show({
+      message,
+      color: type === "success" ? "green" : "red",
+    });
 
   useEffect(() => {
     if (!data) return;
@@ -74,9 +93,16 @@ export function StudentDetail() {
         : "",
       telephone: data.telephone ?? "",
       day: data.day ?? "",
-      timetable: data.timetable ?? "",
+      timetable:
+        data.timetable === "10:30"
+          ? "10:30"
+          : data.timetable === "16:00"
+            ? "16:00"
+            : data.timetable === "18:30"
+              ? "18:30"
+              : undefined,
     });
-    const drafts: Record<string, ClassDraft> = {};
+    const drafts: Record<number, ClassFormState> = {};
     data.classes.forEach((cls) => {
       drafts[cls.id] = {
         className: cls.className ?? "",
@@ -85,34 +111,71 @@ export function StudentDetail() {
           ? new Date(cls.classDay).toISOString().slice(0, 10)
           : "",
         classPaid: Boolean(cls.classPaid),
+        monthId: cls.monthId ?? null,
+        assistance: Boolean(cls.assistance),
+        ovenName: cls.ovenName ?? "",
+        ovenPrice: cls.ovenPrice ?? "",
+        ovenPaid: Boolean(cls.ovenPaid),
+        materialName: cls.materialName ?? "",
+        materialPrice: cls.materialPrice ?? "",
+        materialPaid: Boolean(cls.materialPaid),
       };
     });
     setClassDrafts(drafts);
+    const defaultMonthId = data.months[0]?.id ?? null;
+    setNewClass((prev) => ({
+      ...prev,
+      monthId: prev.monthId ?? defaultMonthId,
+    }));
+    setShowAddMonth(data.months.length === 0);
+    setShowAddClass(data.classes.length === 0);
   }, [data?.id, data]);
 
   const updateStudent = api.students.update.useMutation({
     onSuccess: async () => {
-      await utils.students.byId.invalidate({ id: String(id) });
+      await utils.students.byId.invalidate({ id: studentId });
       await utils.students.list.invalidate();
+      notify("success", "Alumno actualizado");
     },
+    onError: () => notify("error", "No se pudo actualizar el alumno"),
   });
 
   const updateClass = api.students.updateClass.useMutation({
     onSuccess: async () => {
-      await utils.students.byId.invalidate({ id: String(id) });
+      await utils.students.byId.invalidate({ id: studentId });
       await utils.students.list.invalidate();
+      notify("success", "Clase actualizada");
     },
+    onError: () => notify("error", "No se pudo actualizar la clase"),
+  });
+
+  const addMonth = api.students.addMonth.useMutation({
+    onSuccess: async () => {
+      await utils.students.byId.invalidate({ id: studentId });
+      await utils.students.list.invalidate();
+      setNewMonth("");
+      notify("success", "Mes creado");
+    },
+    onError: () => notify("error", "No se pudo crear el mes"),
   });
 
   const addClass = api.students.addClass.useMutation({
     onSuccess: async (_data, variables) => {
-      await utils.students.byId.invalidate({ id: String(id) });
+      await utils.students.byId.invalidate({ id: studentId });
       await utils.students.list.invalidate();
       setNewClass({
         className: "",
         classPrice: "",
         classDay: "",
         classPaid: false,
+        monthId: variables.monthId,
+        assistance: false,
+        ovenName: "",
+        ovenPrice: "",
+        ovenPaid: false,
+        materialName: "",
+        materialPrice: "",
+        materialPaid: false,
       });
       // reset any draft created for new class id
       setClassDrafts((prev) => ({
@@ -122,9 +185,19 @@ export function StudentDetail() {
           classPrice: "",
           classDay: "",
           classPaid: false,
+          monthId: variables.monthId,
+          assistance: false,
+          ovenName: "",
+          ovenPrice: "",
+          ovenPaid: false,
+          materialName: "",
+          materialPrice: "",
+          materialPaid: false,
         },
       }));
+      notify("success", "Clase creada");
     },
+    onError: () => notify("error", "No se pudo crear la clase"),
   });
 
   const studentStats = useMemo(() => {
@@ -169,42 +242,67 @@ export function StudentDetail() {
 
   const handleSaveStudent = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValidId) return;
     updateStudent.mutate({
-      id: String(id),
-      name: form.name || undefined,
-      birthday: form.birthday || undefined,
-      telephone: form.telephone || undefined,
-      day: form.day || undefined,
-      timetable: form.timetable || undefined,
+      id: studentId,
+      name: form.name ?? undefined,
+      birthday: form.birthday ?? undefined,
+      telephone: form.telephone ?? undefined,
+      day: form.day ?? undefined,
+      timetable: form.timetable ?? undefined,
     });
   };
 
-  const handleSaveClass = (classId: string) => {
+  const handleSaveClass = (classId: number) => {
     const draft = classDrafts[classId];
     if (!draft) return;
     updateClass.mutate({
       classId,
       className: draft.className,
-      classPrice: Number(draft.classPrice || 0),
+      classPrice: Number(draft.classPrice ?? 0),
       classDay: draft.classDay
         ? new Date(draft.classDay).toISOString()
         : undefined,
       classPaid: draft.classPaid,
+      assistance: draft.assistance,
+      ovenName: draft.ovenName ?? undefined,
+      ovenPrice: draft.ovenPrice ?? undefined,
+      ovenPaid: draft.ovenPaid,
+      materialName: draft.materialName ?? undefined,
+      materialPrice: draft.materialPrice ?? undefined,
+      materialPaid: draft.materialPaid,
     });
   };
 
   const handleAddClass = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newClass.className || !newClass.classPrice) return;
+    if (!isValidId) return;
+    if (!newClass.className || !newClass.classPrice || !newClass.monthId)
+      return;
     addClass.mutate({
-      studentId: String(id),
+      studentId: studentId,
       className: newClass.className,
       classPrice: Number(newClass.classPrice),
       classDay: newClass.classDay
         ? new Date(newClass.classDay).toISOString()
         : undefined,
       classPaid: newClass.classPaid,
+      monthId: newClass.monthId,
+      assistance: newClass.assistance,
+      ovenName: newClass.ovenName ?? undefined,
+      ovenPrice: newClass.ovenPrice ?? undefined,
+      ovenPaid: newClass.ovenPaid,
+      materialName: newClass.materialName ?? undefined,
+      materialPrice: newClass.materialPrice ?? undefined,
+      materialPaid: newClass.materialPaid,
     });
+  };
+
+  const handleAddMonth = (e: React.FormEvent) => {
+    e.preventDefault();
+    const label = newMonth.trim();
+    if (!label || !isValidId) return;
+    addMonth.mutate({ studentId, label });
   };
 
   return (
@@ -230,6 +328,13 @@ export function StudentDetail() {
             </p>
             <h1 className="text-plum text-3xl font-black">{data.name}</h1>
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setShowEditDetails((prev) => !prev)}
+          >
+            {showEditDetails ? "Ocultar edición" : "Editar alumno"}
+          </Button>
           {studentStats ? (
             <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
               <span className="bg-primary/10 text-primary rounded-xl px-3 py-2 font-semibold">
@@ -255,48 +360,97 @@ export function StudentDetail() {
           ) : null}
         </div>
 
-        <form
-          className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2"
-          onSubmit={handleSaveStudent}
-        >
-          <input
-            required
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Nombre completo"
-            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <input
-            type="date"
-            value={form.birthday}
-            onChange={(e) => setForm({ ...form, birthday: e.target.value })}
-            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <input
-            value={form.telephone}
-            onChange={(e) => setForm({ ...form, telephone: e.target.value })}
-            placeholder="Teléfono"
-            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <input
-            value={form.day}
-            onChange={(e) => setForm({ ...form, day: e.target.value })}
-            placeholder="Día preferido"
-            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <input
-            value={form.timetable}
-            onChange={(e) => setForm({ ...form, timetable: e.target.value })}
-            placeholder="Horario"
-            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <div className="flex justify-end md:col-span-2">
-            <Button type="submit" loading={updateStudent.isPending}>
-              <LuSave className="h-4 w-4" />
-              Guardar alumno
-            </Button>
+        {showEditDetails ? (
+          <form
+            className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2"
+            onSubmit={handleSaveStudent}
+          >
+            <input
+              required
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Nombre completo"
+              className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
+            />
+            <input
+              type="date"
+              value={form.birthday}
+              onChange={(e) => setForm({ ...form, birthday: e.target.value })}
+              className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
+            />
+            <input
+              value={form.telephone}
+              onChange={(e) => setForm({ ...form, telephone: e.target.value })}
+              placeholder="Teléfono"
+              className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
+            />
+            <input
+              value={form.day}
+              onChange={(e) => setForm({ ...form, day: e.target.value })}
+              placeholder="Día preferido"
+              className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
+            />
+            <select
+              value={form.timetable}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  timetable:
+                    e.target.value === "10:30"
+                      ? "10:30"
+                      : e.target.value === "16:00"
+                        ? "16:00"
+                        : e.target.value === "18:30"
+                          ? "18:30"
+                          : undefined,
+                })
+              }
+              className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
+            >
+              <option value="">Seleccionar horario</option>
+              <option key={1} value={"10:30"}>
+                10:30
+              </option>
+              <option key={2} value={"16:00"}>
+                16:00
+              </option>
+              <option key={3} value={"18:30"}>
+                18:30
+              </option>
+            </select>
+            <div className="flex justify-end md:col-span-2">
+              <Button type="submit" loading={updateStudent.isPending}>
+                <LuSave className="h-4 w-4" />
+                Guardar alumno
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="mt-4 grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+            <p className="text-plum/80">
+              <span className="text-plum font-semibold">Nombre:</span>{" "}
+              {data.name}
+            </p>
+            <p className="text-plum/80">
+              <span className="text-plum font-semibold">Cumpleaños:</span>{" "}
+              {data.birthday
+                ? new Date(data.birthday).toLocaleDateString("es-AR")
+                : "—"}
+            </p>
+            <p className="text-plum/80">
+              <span className="text-plum font-semibold">Teléfono:</span>{" "}
+              {data.telephone ?? "—"}
+            </p>
+            <p className="text-plum/80">
+              <span className="text-plum font-semibold">Día preferido:</span>{" "}
+              {data.day ?? "—"}
+            </p>
+            <p className="text-plum/80">
+              <span className="text-plum font-semibold">Horario:</span>{" "}
+              {data.timetable ?? "—"}
+            </p>
           </div>
-        </form>
+        )}
       </div>
 
       <section className="ring-plum/10 space-y-4 rounded-3xl bg-white/85 p-6 shadow-lg ring-1">
@@ -314,61 +468,221 @@ export function StudentDetail() {
           ) : null}
         </div>
 
-        <form
-          className="border-secondary/30 bg-secondary/10 grid grid-cols-1 gap-3 rounded-2xl border p-4 md:grid-cols-5"
-          onSubmit={handleAddClass}
-        >
-          <div className="flex items-center justify-between md:col-span-5">
+        <div className="border-plum/15 flex flex-col gap-3 rounded-2xl border bg-white/70 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-plum/70 text-xs tracking-widest uppercase">
+                Meses
+              </p>
+              <p className="text-plum text-sm font-semibold">
+                Crea un mes para agrupar las clases
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowAddMonth((prev) => !prev)}
+            >
+              {showAddMonth ? "Ocultar formulario" : "Agregar mes"}
+            </Button>
+          </div>
+          {showAddMonth ? (
+            <form
+              className="flex flex-col gap-2 md:flex-row md:items-center"
+              onSubmit={handleAddMonth}
+            >
+              <input
+                value={newMonth}
+                onChange={(e) => setNewMonth(e.target.value)}
+                placeholder="Ej: Mayo 2024"
+                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+              />
+              <Button
+                type="submit"
+                variant="ghost"
+                loading={addMonth.isPending}
+                className="md:w-auto"
+              >
+                <LuPlus className="h-4 w-4" />
+                Crear mes
+              </Button>
+            </form>
+          ) : null}
+        </div>
+        {data.months.length === 0 ? (
+          <p className="text-plum/60 text-sm">
+            Aún no hay meses creados para este alumno.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {data.months.map((month) => (
+              <span
+                key={month.id}
+                className="border-plum/20 text-plum rounded-full border bg-white/80 px-3 py-1 text-xs font-semibold"
+              >
+                {month.label}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="border-secondary/30 bg-secondary/10 rounded-2xl border p-4">
+          <div className="flex items-center justify-between">
             <p className="text-plum text-sm font-semibold">
               Agregar nueva clase
             </p>
-            {addClass.isPending ? (
-              <span className="text-plum/60 text-xs">Guardando...</span>
-            ) : null}
-          </div>
-          <input
-            value={newClass.className}
-            onChange={(e) =>
-              setNewClass({ ...newClass, className: e.target.value })
-            }
-            placeholder="Nombre"
-            className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <input
-            type="number"
-            value={newClass.classPrice}
-            onChange={(e) =>
-              setNewClass({ ...newClass, classPrice: e.target.value })
-            }
-            placeholder="Precio"
-            className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <input
-            type="date"
-            value={newClass.classDay}
-            onChange={(e) =>
-              setNewClass({ ...newClass, classDay: e.target.value })
-            }
-            className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <label className="text-plum flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={newClass.classPaid}
-              onChange={(e) =>
-                setNewClass({ ...newClass, classPaid: e.target.checked })
-              }
-              className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
-            />
-            Pagado
-          </label>
-          <div className="flex items-center justify-end">
-            <Button type="submit" variant="ghost" loading={addClass.isPending}>
-              <LuPlus className="h-4 w-4" />
-              Guardar clase
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowAddClass((prev) => !prev)}
+            >
+              {showAddClass ? "Ocultar formulario" : "Agregar clase"}
             </Button>
           </div>
-        </form>
+          {showAddClass ? (
+            <form
+              className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-5"
+              onSubmit={handleAddClass}
+            >
+              <select
+                value={newClass.monthId ?? ""}
+                onChange={(e) => {
+                  const value =
+                    e.target.value === "" ? null : Number(e.target.value);
+                  setNewClass((prev) => ({
+                    ...prev,
+                    monthId: value,
+                  }));
+                }}
+                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                disabled={data.months.length === 0}
+              >
+                <option value="">
+                  {data.months.length === 0
+                    ? "Crea un mes para asignar"
+                    : "Selecciona un mes"}
+                </option>
+                {data.months.map((month) => (
+                  <option key={month.id} value={month.id}>
+                    {month.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={newClass.className}
+                onChange={(e) =>
+                  setNewClass({ ...newClass, className: e.target.value })
+                }
+                placeholder="Nombre"
+                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+              />
+              <input
+                type="number"
+                value={newClass.classPrice}
+                onChange={(e) =>
+                  setNewClass({ ...newClass, classPrice: e.target.value })
+                }
+                placeholder="Precio"
+                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+              />
+              <input
+                type="date"
+                value={newClass.classDay}
+                onChange={(e) =>
+                  setNewClass({ ...newClass, classDay: e.target.value })
+                }
+                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+              />
+              <label className="text-plum flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={newClass.classPaid}
+                  onChange={(e) =>
+                    setNewClass({ ...newClass, classPaid: e.target.checked })
+                  }
+                  className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                />
+                Pagado
+              </label>
+              <label className="text-plum flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={newClass.assistance}
+                  onChange={(e) =>
+                    setNewClass({ ...newClass, assistance: e.target.checked })
+                  }
+                  className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                />
+                Asistió
+              </label>
+              <input
+                value={newClass.ovenName}
+                onChange={(e) =>
+                  setNewClass({ ...newClass, ovenName: e.target.value })
+                }
+                placeholder="Horno (nombre)"
+                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+              />
+              <input
+                value={newClass.ovenPrice}
+                onChange={(e) =>
+                  setNewClass({ ...newClass, ovenPrice: e.target.value })
+                }
+                placeholder="Horno (precio)"
+                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+              />
+              <label className="text-plum flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={newClass.ovenPaid}
+                  onChange={(e) =>
+                    setNewClass({ ...newClass, ovenPaid: e.target.checked })
+                  }
+                  className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                />
+                Horno pagado
+              </label>
+              <input
+                value={newClass.materialName}
+                onChange={(e) =>
+                  setNewClass({ ...newClass, materialName: e.target.value })
+                }
+                placeholder="Material (nombre)"
+                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+              />
+              <input
+                value={newClass.materialPrice}
+                onChange={(e) =>
+                  setNewClass({ ...newClass, materialPrice: e.target.value })
+                }
+                placeholder="Material (precio)"
+                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+              />
+              <label className="text-plum flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={newClass.materialPaid}
+                  onChange={(e) =>
+                    setNewClass({ ...newClass, materialPaid: e.target.checked })
+                  }
+                  className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                />
+                Material pagado
+              </label>
+              <div className="flex items-center justify-end md:col-span-5">
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  loading={addClass.isPending}
+                  disabled={!newClass.monthId}
+                >
+                  <LuPlus className="h-4 w-4" />
+                  Guardar clase
+                </Button>
+              </div>
+            </form>
+          ) : null}
+        </div>
 
         {data.classes.length === 0 ? (
           <p className="border-plum/20 text-plum/70 rounded-xl border border-dashed bg-white/70 p-4 text-sm">
@@ -382,6 +696,14 @@ export function StudentDetail() {
                 classPrice: "",
                 classDay: "",
                 classPaid: false,
+                monthId: cls.monthId ?? null,
+                assistance: cls.assistance ?? false,
+                ovenName: cls.ovenName ?? "",
+                ovenPrice: cls.ovenPrice ?? "",
+                ovenPaid: cls.ovenPaid ?? false,
+                materialName: cls.materialName ?? "",
+                materialPrice: cls.materialPrice ?? "",
+                materialPaid: cls.materialPaid ?? false,
               };
               return (
                 <div
@@ -397,6 +719,12 @@ export function StudentDetail() {
                       {new Date(cls.createdAt).toLocaleDateString("es-AR")}
                     </span>
                   </div>
+                  <p className="text-plum/70 text-xs">
+                    Mes:{" "}
+                    <span className="text-plum font-semibold">
+                      {cls.monthLabel}
+                    </span>
+                  </p>
                   <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
                     <input
                       value={draft.className}
@@ -457,6 +785,113 @@ export function StudentDetail() {
                         className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
                       />
                       Pagado
+                    </label>
+                    <label className="text-plum flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={draft.assistance}
+                        onChange={(e) =>
+                          setClassDrafts((prev) => ({
+                            ...prev,
+                            [cls.id]: {
+                              ...(prev[cls.id] ?? draft),
+                              assistance: e.target.checked,
+                            },
+                          }))
+                        }
+                        className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                      />
+                      Asistió
+                    </label>
+                    <input
+                      value={draft.ovenName}
+                      onChange={(e) =>
+                        setClassDrafts((prev) => ({
+                          ...prev,
+                          [cls.id]: {
+                            ...(prev[cls.id] ?? draft),
+                            ovenName: e.target.value,
+                          },
+                        }))
+                      }
+                      placeholder="Horno (nombre)"
+                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                    />
+                    <input
+                      value={draft.ovenPrice}
+                      onChange={(e) =>
+                        setClassDrafts((prev) => ({
+                          ...prev,
+                          [cls.id]: {
+                            ...(prev[cls.id] ?? draft),
+                            ovenPrice: e.target.value,
+                          },
+                        }))
+                      }
+                      placeholder="Horno (precio)"
+                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                    />
+                    <label className="text-plum flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={draft.ovenPaid}
+                        onChange={(e) =>
+                          setClassDrafts((prev) => ({
+                            ...prev,
+                            [cls.id]: {
+                              ...(prev[cls.id] ?? draft),
+                              ovenPaid: e.target.checked,
+                            },
+                          }))
+                        }
+                        className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                      />
+                      Horno pagado
+                    </label>
+                    <input
+                      value={draft.materialName}
+                      onChange={(e) =>
+                        setClassDrafts((prev) => ({
+                          ...prev,
+                          [cls.id]: {
+                            ...(prev[cls.id] ?? draft),
+                            materialName: e.target.value,
+                          },
+                        }))
+                      }
+                      placeholder="Material (nombre)"
+                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                    />
+                    <input
+                      value={draft.materialPrice}
+                      onChange={(e) =>
+                        setClassDrafts((prev) => ({
+                          ...prev,
+                          [cls.id]: {
+                            ...(prev[cls.id] ?? draft),
+                            materialPrice: e.target.value,
+                          },
+                        }))
+                      }
+                      placeholder="Material (precio)"
+                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                    />
+                    <label className="text-plum flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={draft.materialPaid}
+                        onChange={(e) =>
+                          setClassDrafts((prev) => ({
+                            ...prev,
+                            [cls.id]: {
+                              ...(prev[cls.id] ?? draft),
+                              materialPaid: e.target.checked,
+                            },
+                          }))
+                        }
+                        className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                      />
+                      Material pagado
                     </label>
                   </div>
                   <div className="mt-3 flex justify-end">

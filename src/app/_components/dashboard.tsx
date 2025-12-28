@@ -1,166 +1,32 @@
 "use client";
 
-import type { ButtonHTMLAttributes, ReactNode } from "react";
-import Link from "next/link";
+import { showNotification } from "@mantine/notifications";
 import { useMemo, useState } from "react";
-import { LuLoader2, LuPlus, LuTrash2 } from "react-icons/lu";
+import { LuPlus, LuTrash2 } from "react-icons/lu";
 
-import { api, type RouterOutputs } from "~/trpc/react";
-
-type Student = RouterOutputs["students"]["list"][number];
-
-type ClassDraft = {
-  className: string;
-  classPrice: string;
-  classDay: string;
-  classPaid: boolean;
-};
-
-const emptyStudent = {
-  name: "",
-  birthday: "",
-  telephone: "",
-  day: "",
-  timetable: "",
-};
-
-const emptyClassDraft: ClassDraft = {
-  className: "",
-  classPrice: "",
-  classDay: "",
-  classPaid: false,
-};
-
-const WEEK_DAYS = [
-  { value: 1, label: "Lunes", aliases: ["lunes", "lun", "mon"] },
-  { value: 2, label: "Martes", aliases: ["martes", "mar", "tue"] },
-  { value: 3, label: "Miércoles", aliases: ["miercoles", "mié", "mie", "wed"] },
-  { value: 4, label: "Jueves", aliases: ["jueves", "jue", "thu"] },
-  { value: 5, label: "Viernes", aliases: ["viernes", "vie", "fri"] },
-  { value: 6, label: "Sábado", aliases: ["sabado", "sáb", "sab", "sat"] },
-  { value: 0, label: "Domingo", aliases: ["domingo", "dom", "sun"] },
-] as const;
-
-type DayOption = (typeof WEEK_DAYS)[number];
-type CalendarDayKey = DayOption["value"] | "unscheduled";
-type CalendarEntry = {
-  day: CalendarDayKey;
-  dayLabel: string;
-  time: string;
-  student: string;
-  className?: string;
-  classDateLabel?: string;
-};
-
-const TIME_REGEX = /(\d{1,2}):(\d{2})/;
-
-const Button = ({
-  children,
-  variant = "primary",
-  loading = false,
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "ghost" | "danger";
-  loading?: boolean;
-  children: ReactNode;
-}) => {
-  const base =
-    "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all";
-  const variants: Record<"primary" | "ghost" | "danger", string> = {
-    primary:
-      "bg-primary text-sand shadow-[0_10px_30px_rgba(163,13,13,0.3)] hover:-translate-y-0.5 hover:shadow-[0_12px_34px_rgba(163,13,13,0.35)]",
-    ghost: "border border-plum/10 text-plum hover:bg-plum/10",
-    danger:
-      "bg-plum text-sand hover:-translate-y-0.5 shadow-[0_10px_30px_rgba(88,43,57,0.3)]",
-  };
-
-  return (
-    <button
-      className={`${base} ${variants[variant]}`}
-      disabled={loading}
-      {...props}
-    >
-      {loading ? <LuLoader2 className="h-4 w-4 animate-spin" /> : null}
-      {children}
-    </button>
-  );
-};
-
-const StatCard = ({ label, value }: { label: string; value: string }) => (
-  <div className="ring-plum/10 rounded-2xl bg-white/80 px-4 py-3 shadow-sm ring-1">
-    <p className="text-plum/70 text-xs tracking-[0.08em] uppercase">{label}</p>
-    <p className="text-plum text-2xl font-semibold">{value}</p>
-  </div>
-);
-
-const ClassBadge = ({ cls }: { cls: Student["classes"][number] }) => (
-  <div className="border-plum/10 text-ink rounded-xl border bg-white/70 px-3 py-2 text-sm shadow-sm">
-    <div className="flex items-center justify-between gap-2">
-      <p className="text-plum font-semibold">{cls.className}</p>
-      <p className="text-plum/80 text-xs">
-        {cls.classDay
-          ? new Date(cls.classDay).toLocaleDateString("es-AR")
-          : "Sin fecha"}
-      </p>
-    </div>
-    <div className="mt-1 flex items-center justify-between text-xs">
-      <span>
-        Precio:{" "}
-        <span className="text-ink font-semibold">
-          ${Number(cls.classPrice).toLocaleString("es-AR")}
-        </span>
-      </span>
-      <span
-        className={`rounded-full px-2 py-0.5 font-semibold ${
-          cls.classPaid
-            ? "bg-primary/10 text-primary"
-            : "bg-secondary/20 text-plum"
-        }`}
-      >
-        {cls.classPaid ? "Pagado" : "Pendiente"}
-      </span>
-    </div>
-  </div>
-);
-
-const sanitizeDay = (value: string) =>
-  value
-    .toLowerCase()
-    .replace(/á/g, "a")
-    .replace(/é/g, "e")
-    .replace(/í/g, "i")
-    .replace(/ó/g, "o")
-    .replace(/ú/g, "u");
-
-const getDayFromString = (value?: string): DayOption | null => {
-  if (!value) return null;
-  const normalized = sanitizeDay(value.trim());
-  return (
-    WEEK_DAYS.find((day) =>
-      day.aliases.some((alias) => normalized.startsWith(alias)),
-    ) ?? null
-  );
-};
-
-const parseTimeToMinutes = (time: string) => {
-  const match = TIME_REGEX.exec(time);
-  if (!match) return Number.POSITIVE_INFINITY;
-  const hours = Number.parseInt(match[1] ?? "0", 10);
-  const minutes = Number.parseInt(match[2] ?? "0", 10);
-  return hours * 60 + minutes;
-};
+import { api } from "~/trpc/react";
+import {
+  type CalendarDayKey,
+  type CalendarEntry,
+  emptyStudent,
+  getDayFromString,
+  parseTimeToMinutes,
+  WEEK_DAYS,
+} from "~/types/utils";
+import { StatCard } from "./statCard";
+import { ButtonM } from "./button";
+import Link from "next/link";
+import { Flex, Stack, Text, Title } from "@mantine/core";
 
 export function Dashboard() {
   const [search, setSearch] = useState("");
   const [studentForm, setStudentForm] = useState({ ...emptyStudent });
-  const [classDrafts, setClassDrafts] = useState<Record<string, ClassDraft>>(
-    {},
-  );
+  const [showCreateStudent, setShowCreateStudent] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   const utils = api.useUtils();
   const { data: students, isLoading } = api.students.list.useQuery(
-    { search: search.trim() || undefined },
+    { search: search.trim() ?? undefined },
     { refetchOnWindowFocus: false },
   );
 
@@ -178,98 +44,51 @@ export function Dashboard() {
     onSuccess: async () => {
       await utils.students.list.invalidate();
       setStudentForm({ ...emptyStudent });
+      showNotification({
+        title: "Alumno creado",
+        color: "green",
+        message: "El alumno fue creado exitosamente",
+      });
     },
+    onError: () =>
+      showNotification({ color: "red", message: "No se pudo crear el alumno" }),
   });
 
   const deleteStudent = api.students.delete.useMutation({
     onSuccess: async () => {
       await utils.students.list.invalidate();
+      showNotification({ color: "green", message: "Alumno eliminado" });
     },
-  });
-
-  const addClass = api.students.addClass.useMutation({
-    onSuccess: async (_data, variables) => {
-      await utils.students.list.invalidate();
-      setClassDrafts((prev) => ({
-        ...prev,
-        [variables.studentId]: { ...emptyClassDraft },
-      }));
-    },
-  });
-
-  const deleteClass = api.students.deleteClass.useMutation({
-    onSuccess: async () => {
-      await utils.students.list.invalidate();
-    },
+    onError: () =>
+      showNotification({
+        color: "red",
+        message: "No se pudo eliminar el alumno",
+      }),
   });
 
   const handleCreateStudent = (e: React.FormEvent) => {
     e.preventDefault();
     createStudent.mutate({
       ...studentForm,
-      birthday: studentForm.birthday || undefined,
-      telephone: studentForm.telephone || undefined,
-      day: studentForm.day || undefined,
-      timetable: studentForm.timetable || undefined,
-    });
-  };
-
-  const handleAddClass = (studentId: string) => {
-    const draft = classDrafts[studentId] ?? emptyClassDraft;
-    if (!draft.className || !draft.classPrice) return;
-    addClass.mutate({
-      studentId,
-      className: draft.className,
-      classPrice: Number(draft.classPrice),
-      classDay: draft.classDay
-        ? new Date(draft.classDay).toISOString()
-        : undefined,
-      classPaid: draft.classPaid,
+      birthday: studentForm.birthday ?? undefined,
+      telephone: studentForm.telephone ?? undefined,
+      day: studentForm.day ?? undefined,
+      timetable: studentForm.timetable ?? undefined,
     });
   };
 
   const calendarEntries = useMemo<CalendarEntry[]>(() => {
-    const entries: CalendarEntry[] = [];
-
-    students?.forEach((student) => {
-      const fallbackDay = getDayFromString(student.day ?? undefined);
-      const fallbackTime = student.timetable?.trim() ?? "Sin horario";
-
-      if (student.classes.length === 0) {
-        entries.push({
-          day: fallbackDay?.value ?? "unscheduled",
-          dayLabel: fallbackDay?.label ?? "Sin día",
-          time: fallbackTime,
-          student: student.name,
-        });
-        return;
-      }
-
-      student.classes.forEach((cls) => {
-        const classDate = cls.classDay ? new Date(cls.classDay) : null;
-        const mappedDay = classDate
-          ? (WEEK_DAYS.find((day) => day.value === classDate.getDay()) ?? null)
-          : fallbackDay;
-
-        entries.push({
-          day: mappedDay?.value ?? "unscheduled",
-          dayLabel: mappedDay?.label ?? "Sin día",
-          time: classDate
-            ? classDate.toLocaleTimeString("es-AR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : fallbackTime,
-          student: student.name,
-          className: cls.className,
-          classDateLabel: classDate
-            ? classDate.toLocaleDateString("es-AR")
-            : undefined,
-        });
-      });
+    if (!students) return [];
+    return students.map((student) => {
+      const preferredDay = getDayFromString(student.day ?? undefined);
+      return {
+        day: preferredDay?.value ?? "unscheduled",
+        dayLabel: preferredDay?.label ?? "Sin día",
+        time: student.timetable?.trim() ?? "Sin horario",
+        student: student.name,
+        id: student.id,
+      };
     });
-
-    return entries;
   }, [students]);
 
   const calendarTimes = useMemo(() => {
@@ -343,59 +162,88 @@ export function Dashboard() {
             Crea alumnos con su información básica. Los nombres se guardan
             capitalizados automáticamente.
           </p>
+          <ButtonM
+            type="button"
+            variant="ghost"
+            onClick={() => setShowCreateStudent((prev) => !prev)}
+          >
+            {showCreateStudent ? "Ocultar" : "Mostrar"} formulario
+          </ButtonM>
         </div>
-        <form
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2"
-          onSubmit={handleCreateStudent}
-        >
-          <input
-            required
-            value={studentForm.name}
-            onChange={(e) =>
-              setStudentForm({ ...studentForm, name: e.target.value })
-            }
-            placeholder="Nombre completo"
-            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <input
-            type="date"
-            value={studentForm.birthday}
-            onChange={(e) =>
-              setStudentForm({ ...studentForm, birthday: e.target.value })
-            }
-            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <input
-            value={studentForm.telephone}
-            onChange={(e) =>
-              setStudentForm({ ...studentForm, telephone: e.target.value })
-            }
-            placeholder="Teléfono"
-            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <input
-            value={studentForm.day}
-            onChange={(e) =>
-              setStudentForm({ ...studentForm, day: e.target.value })
-            }
-            placeholder="Día preferido"
-            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <input
-            value={studentForm.timetable}
-            onChange={(e) =>
-              setStudentForm({ ...studentForm, timetable: e.target.value })
-            }
-            placeholder="Horario"
-            className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
-          />
-          <div className="flex items-center justify-end sm:col-span-2">
-            <Button type="submit" loading={createStudent.isPending}>
-              <LuPlus className="h-4 w-4" />
-              Crear alumno
-            </Button>
-          </div>
-        </form>
+        {showCreateStudent ? (
+          <form
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+            onSubmit={handleCreateStudent}
+          >
+            <input
+              required
+              value={studentForm.name}
+              onChange={(e) =>
+                setStudentForm({ ...studentForm, name: e.target.value })
+              }
+              placeholder="Nombre completo"
+              className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
+            />
+            <input
+              type="date"
+              value={studentForm.birthday}
+              onChange={(e) =>
+                setStudentForm({ ...studentForm, birthday: e.target.value })
+              }
+              className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
+            />
+            <input
+              value={studentForm.telephone}
+              onChange={(e) =>
+                setStudentForm({ ...studentForm, telephone: e.target.value })
+              }
+              placeholder="Teléfono"
+              className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
+            />
+            <input
+              value={studentForm.day}
+              onChange={(e) =>
+                setStudentForm({ ...studentForm, day: e.target.value })
+              }
+              placeholder="Día preferido"
+              className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
+            />
+            <select
+              value={studentForm.timetable}
+              onChange={(e) =>
+                setStudentForm({
+                  ...studentForm,
+                  timetable:
+                    e.target.value === "10:30"
+                      ? "10:30"
+                      : e.target.value === "16:00"
+                        ? "16:00"
+                        : e.target.value === "18:30"
+                          ? "18:30"
+                          : undefined,
+                })
+              }
+              className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
+            >
+              <option value="">Seleccionar horario</option>
+              <option key={1} value={"10:30"}>
+                10:30
+              </option>
+              <option key={2} value={"16:00"}>
+                16:00
+              </option>
+              <option key={3} value={"18:30"}>
+                18:30
+              </option>
+            </select>
+            <div className="flex items-center justify-end sm:col-span-2">
+              <ButtonM type="submit" loading={createStudent.isPending}>
+                <LuPlus className="h-4 w-4" />
+                Crear alumno
+              </ButtonM>
+            </div>
+          </form>
+        ) : null}
       </section>
 
       <section className="flex flex-col gap-4">
@@ -404,9 +252,7 @@ export function Dashboard() {
             <p className="text-plum/70 text-xs tracking-[0.12em] uppercase">
               Alumnos
             </p>
-            <h2 className="text-plum text-2xl font-semibold">
-              Listado y clases
-            </h2>
+            <h2 className="text-plum text-2xl font-semibold">Listado</h2>
           </div>
           <div className="flex items-center gap-3">
             {isLoading && <p className="text-plum/60 text-sm">Cargando...</p>}
@@ -479,37 +325,30 @@ export function Dashboard() {
                             entry.day === day.value && entry.time === time,
                         );
                         return (
-                          <div
+                          <Flex
                             key={`${time}-${day.value}`}
                             className="border-plum/5 min-h-24 border-l px-3 py-2"
+                            justify={"space-around"}
                           >
                             {matches.length === 0 ? (
-                              <p className="text-plum/40 text-xs">—</p>
+                              <Text className="text-plum/40 text-xs">—</Text>
                             ) : (
-                              <div className="flex flex-col gap-2">
+                              <Stack gap={"md"} justify="space-around">
                                 {matches.map((match, idx) => (
-                                  <div
-                                    key={`${match.student}-${match.className ?? "sin-clase"}-${idx}`}
+                                  <Flex
+                                    key={`${match.student}-${match.time}-${idx}`}
                                     className="border-plum/20 bg-primary/5 text-plum rounded-lg border px-3 py-2 text-xs shadow-sm"
                                   >
-                                    <p className="text-plum text-sm font-semibold">
-                                      {match.student}
-                                    </p>
-                                    <p className="text-plum/70 text-[11px]">
-                                      {match.className
-                                        ? `Clase: ${match.className}`
-                                        : "Sin clase asociada"}
-                                    </p>
-                                    {match.classDateLabel ? (
-                                      <p className="text-plum/60 text-[11px]">
-                                        Fecha: {match.classDateLabel}
-                                      </p>
-                                    ) : null}
-                                  </div>
+                                    <Text className="text-plum text-sm font-semibold">
+                                      <Link href={`/students/${match.id}`}>
+                                        {match.student}
+                                      </Link>
+                                    </Text>
+                                  </Flex>
                                 ))}
-                              </div>
+                              </Stack>
                             )}
-                          </div>
+                          </Flex>
                         );
                       })}
                     </div>
@@ -521,27 +360,24 @@ export function Dashboard() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {students?.map((student) => {
-              const draft = classDrafts[student.id] ?? emptyClassDraft;
               return (
-                <article
+                <Stack
                   key={student.id}
-                  className="border-plum/15 flex flex-col gap-4 rounded-2xl border bg-white/85 p-4 shadow-md"
+                  className="border-plum/15 gap-4 rounded-2xl bg-white/85 p-4 shadow-md shadow-[#a30d0d]/15"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-plum text-lg font-semibold">
+                      <Title size={"xl"} className="text-plum font-semibold">
                         {student.name}
-                      </h3>
-                      <p className="text-plum/70 text-xs">
+                      </Title>
+                      <Text className="text-plum/70 text-xs">
                         {student.day
                           ? `Día: ${student.day}`
                           : "Sin día asignado"}
-                      </p>
-                      {student.telephone ? (
-                        <p className="text-plum/70 text-xs">
-                          Tel: {student.telephone}
-                        </p>
-                      ) : null}
+                      </Text>
+                      <Text className="text-plum/60 text-xs">
+                        {student.classes.length} clases
+                      </Text>
                     </div>
                     <div className="flex gap-2">
                       <Link
@@ -550,122 +386,16 @@ export function Dashboard() {
                       >
                         Ver detalle
                       </Link>
-                      <Button
+                      <ButtonM
                         variant="danger"
                         onClick={() => deleteStudent.mutate({ id: student.id })}
                         loading={deleteStudent.isPending}
                       >
                         <LuTrash2 className="h-4 w-4" />
-                      </Button>
+                      </ButtonM>
                     </div>
                   </div>
-
-                  <div className="flex flex-col gap-2">
-                    <p className="text-plum/70 text-xs tracking-widest uppercase">
-                      Clases
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      {student.classes.length === 0 ? (
-                        <p className="text-plum/60 text-sm">
-                          Sin clases asociadas aún.
-                        </p>
-                      ) : (
-                        student.classes.map((cls) => (
-                          <div key={cls.id} className="flex items-start gap-3">
-                            <ClassBadge cls={cls} />
-                            <Button
-                              variant="ghost"
-                              onClick={() =>
-                                deleteClass.mutate({ classId: cls.id })
-                              }
-                              loading={deleteClass.isPending}
-                            >
-                              <LuTrash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="border-secondary/40 bg-secondary/10 rounded-xl border p-3">
-                    <p className="text-plum/70 text-xs tracking-widest uppercase">
-                      Agregar clase
-                    </p>
-                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <input
-                        value={draft.className}
-                        onChange={(e) =>
-                          setClassDrafts((prev) => ({
-                            ...prev,
-                            [student.id]: {
-                              ...(prev[student.id] ?? emptyClassDraft),
-                              className: e.target.value,
-                            },
-                          }))
-                        }
-                        placeholder="Nombre"
-                        className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-                      />
-                      <input
-                        type="number"
-                        value={draft.classPrice}
-                        onChange={(e) =>
-                          setClassDrafts((prev) => ({
-                            ...prev,
-                            [student.id]: {
-                              ...(prev[student.id] ?? emptyClassDraft),
-                              classPrice: e.target.value,
-                            },
-                          }))
-                        }
-                        placeholder="Precio"
-                        className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-                      />
-                      <input
-                        type="date"
-                        value={draft.classDay}
-                        onChange={(e) =>
-                          setClassDrafts((prev) => ({
-                            ...prev,
-                            [student.id]: {
-                              ...(prev[student.id] ?? emptyClassDraft),
-                              classDay: e.target.value,
-                            },
-                          }))
-                        }
-                        className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-                      />
-                      <label className="text-plum flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={draft.classPaid}
-                          onChange={(e) =>
-                            setClassDrafts((prev) => ({
-                              ...prev,
-                              [student.id]: {
-                                ...(prev[student.id] ?? emptyClassDraft),
-                                classPaid: e.target.checked,
-                              },
-                            }))
-                          }
-                          className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
-                        />
-                        Pagado
-                      </label>
-                    </div>
-                    <div className="mt-3 flex justify-end">
-                      <Button
-                        onClick={() => handleAddClass(student.id)}
-                        loading={addClass.isPending}
-                        type="button"
-                      >
-                        <LuPlus className="h-4 w-4" />
-                        Guardar clase
-                      </Button>
-                    </div>
-                  </div>
-                </article>
+                </Stack>
               );
             })}
             {!isLoading && (students?.length ?? 0) === 0 ? (

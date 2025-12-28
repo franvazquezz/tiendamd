@@ -1,52 +1,77 @@
 import { Prisma } from "@prisma/client";
-import { z } from "zod";
+import type { Timetable } from "@prisma/client";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import {
+  deleteClassInput,
+  monthInput,
+  newClassInput,
+  studentCreateInput,
+  studentIdInput,
+  studentSearchInput,
+  studentUpdateInput,
+  updateClassInput,
+} from "~/types/students";
+import type { StudentWithMonths } from "~/types/students";
 
-const dateString = z
-  .string()
-  .optional()
-  .refine((val) => !val || !Number.isNaN(Date.parse(val)), {
-    message: "Invalid date",
-  });
+// Map between Prisma enum names and the readable timetable strings used by
+// the frontend and zod validation. Prisma enum values are defined in
+// prisma/schema.prisma as: TEN_THIRTY @map("10:30"), SIXTEEN @map("16:00"),
+// EIGHTEEN @map("18:30"). The Prisma client will expose the enum *names*
+// (TEN_THIRTY, SIXTEEN, EIGHTEEN) in JS, so we translate back and forth.
+const TIMETABLE_MAP: Record<string, string> = {
+  TEN_THIRTY: "10:30",
+  SIXTEEN: "16:00",
+  EIGHTEEN: "18:30",
+};
 
-const classInput = z.object({
-  className: z.string().min(1),
-  assistance: z.array(z.boolean()).length(4).optional(),
-  classPrice: z
-    .union([z.number(), z.string()])
-    .transform((val) => (typeof val === "number" ? val : Number(val))),
-  classDay: dateString,
-  classPaid: z.boolean().optional(),
-  ovenName: z.string().optional(),
-  ovenPrice: z.string().optional(),
-  ovenPaid: z.boolean().optional(),
-  materialName: z.string().optional(),
-  materialPrice: z.string().optional(),
-  materialPaid: z.boolean().optional(),
-});
+const timetableNameToValue = (name?: string | null) => {
+  if (!name) return undefined;
+  return TIMETABLE_MAP[name] ?? undefined;
+};
 
-type StudentWithClasses = Prisma.StudentGetPayload<{
-  include: { classes: { include: { class: true } } };
-}>;
+const timetableValueToName = (value?: string | null) => {
+  if (!value) return undefined;
+  const entry = Object.entries(TIMETABLE_MAP).find(([, v]) => v === value);
+  return entry ? entry[0] : undefined;
+};
 
-const mapStudent = (student: StudentWithClasses) => ({
-  id: student.id,
-  name: student.name,
-  birthday: student.birthday,
-  telephone: student.telephone,
-  day: student.day,
-  timetable: student.timetable,
-  createdAt: student.createdAt,
-  updatedAt: student.updatedAt,
-  classes: student.classes
-    .map((link) => link.class)
-    .filter((cls): cls is NonNullable<typeof cls> => Boolean(cls)),
-});
+const mapStudent = (student: StudentWithMonths) => {
+  const months = student.months.map((month) => ({
+    id: month.id,
+    label: month.label,
+    createdAt: month.createdAt,
+    updatedAt: month.updatedAt,
+    studentId: month.studentId,
+    classes: month.classes,
+  }));
+
+  const classes = months.flatMap((month) =>
+    month.classes.map((cls) => ({
+      ...cls,
+      monthLabel: month.label,
+    })),
+  );
+
+  return {
+    id: student.id,
+    name: student.name,
+    birthday: student.birthday,
+    telephone: student.telephone,
+    day: student.day,
+    // Prisma returns the enum name (e.g. EIGHTEEN). Convert to the
+    // user-facing mapped value (e.g. "18:30") before sending to client.
+    timetable: timetableNameToValue(student.timetable),
+    createdAt: student.createdAt,
+    updatedAt: student.updatedAt,
+    months,
+    classes,
+  };
+};
 
 export const studentsRouter = createTRPCRouter({
   list: publicProcedure
-    .input(z.object({ search: z.string().optional() }).optional())
+    .input(studentSearchInput)
     .query(async ({ ctx, input }) => {
       const students = await ctx.db.student.findMany({
         where: input?.search
@@ -57,34 +82,24 @@ export const studentsRouter = createTRPCRouter({
               },
             }
           : undefined,
-        include: { classes: { include: { class: true } } },
+        include: { months: { include: { classes: true } } },
         orderBy: { createdAt: "desc" },
       });
 
       return students.map(mapStudent);
     }),
 
-  byId: publicProcedure
-    .input(z.object({ id: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
-      const student = await ctx.db.student.findUnique({
-        where: { id: input.id },
-        include: { classes: { include: { class: true } } },
-      });
+  byId: publicProcedure.input(studentIdInput).query(async ({ ctx, input }) => {
+    const student = await ctx.db.student.findUnique({
+      where: { id: input.id },
+      include: { months: { include: { classes: true } } },
+    });
 
-      return student ? mapStudent(student) : null;
-    }),
+    return student ? mapStudent(student) : null;
+  }),
 
   create: publicProcedure
-    .input(
-      z.object({
-        name: z.string().min(1),
-        birthday: dateString,
-        telephone: z.string().optional(),
-        day: z.string().optional(),
-        timetable: z.string().optional(),
-      }),
-    )
+    .input(studentCreateInput)
     .mutation(async ({ ctx, input }) => {
       const name =
         input.name.trim().length > 0
@@ -97,24 +112,17 @@ export const studentsRouter = createTRPCRouter({
           birthday: input.birthday ? new Date(input.birthday) : undefined,
           telephone: input.telephone,
           day: input.day,
-          timetable: input.timetable,
+          timetable: timetableValueToName(input.timetable) as
+            | Timetable
+            | undefined,
         },
-        include: { classes: { include: { class: true } } },
+        include: { months: { include: { classes: true } } },
       });
-      return mapStudent(student);
+      return mapStudent(student as StudentWithMonths);
     }),
 
   update: publicProcedure
-    .input(
-      z.object({
-        id: z.string().uuid(),
-        name: z.string().min(1).optional(),
-        birthday: dateString,
-        telephone: z.string().optional(),
-        day: z.string().optional(),
-        timetable: z.string().optional(),
-      }),
-    )
+    .input(studentUpdateInput)
     .mutation(async ({ ctx, input }) => {
       const { id, ...rest } = input;
       const updated = await ctx.db.student.update({
@@ -127,29 +135,28 @@ export const studentsRouter = createTRPCRouter({
           birthday: rest.birthday ? new Date(rest.birthday) : undefined,
           telephone: rest.telephone,
           day: rest.day,
-          timetable: rest.timetable,
+          timetable: timetableValueToName(rest.timetable) as
+            | Timetable
+            | undefined,
         },
-        include: { classes: { include: { class: true } } },
+        include: { months: { include: { classes: true } } },
       });
-      return mapStudent(updated);
+      return mapStudent(updated as StudentWithMonths);
     }),
 
   delete: publicProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(studentIdInput)
     .mutation(async ({ ctx, input }) => {
       await ctx.db.$transaction([
-        ctx.db.studentClass.deleteMany({ where: { studentId: input.id } }),
+        ctx.db.class.deleteMany({ where: { month: { studentId: input.id } } }),
+        ctx.db.month.deleteMany({ where: { studentId: input.id } }),
         ctx.db.student.delete({ where: { id: input.id } }),
       ]);
       return { success: true };
     }),
 
-  addClass: publicProcedure
-    .input(
-      classInput.extend({
-        studentId: z.string().uuid(),
-      }),
-    )
+  addMonth: publicProcedure
+    .input(monthInput)
     .mutation(async ({ ctx, input }) => {
       const studentExists = await ctx.db.student.findUnique({
         where: { id: input.studentId },
@@ -158,10 +165,31 @@ export const studentsRouter = createTRPCRouter({
         throw new Error("Student not found");
       }
 
+      const label = input.label.trim();
+      const month = await ctx.db.month.create({
+        data: {
+          label,
+          studentId: input.studentId,
+        },
+      });
+
+      return month;
+    }),
+
+  addClass: publicProcedure
+    .input(newClassInput)
+    .mutation(async ({ ctx, input }) => {
+      const month = await ctx.db.month.findFirst({
+        where: { id: input.monthId, studentId: input.studentId },
+      });
+      if (!month) {
+        throw new Error("Month not found for student");
+      }
+
       await ctx.db.class.create({
         data: {
           className: input.className,
-          assistance: input.assistance,
+          assistance: input.assistance ?? false,
           classPrice: new Prisma.Decimal(input.classPrice),
           classDay: input.classDay ? new Date(input.classDay) : undefined,
           classPaid: input.classPaid ?? false,
@@ -171,32 +199,26 @@ export const studentsRouter = createTRPCRouter({
           materialName: input.materialName ?? "",
           materialPrice: input.materialPrice ?? "",
           materialPaid: input.materialPaid ?? false,
-          students: {
-            create: [{ student: { connect: { id: input.studentId } } }],
-          },
+          monthId: input.monthId,
         },
       });
 
       const student = await ctx.db.student.findUnique({
         where: { id: input.studentId },
-        include: { classes: { include: { class: true } } },
+        include: { months: { include: { classes: true } } },
       });
 
       return student ? mapStudent(student) : null;
     }),
 
   updateClass: publicProcedure
-    .input(
-      classInput.extend({
-        classId: z.string().uuid(),
-      }),
-    )
+    .input(updateClassInput)
     .mutation(async ({ ctx, input }) => {
       const updated = await ctx.db.class.update({
         where: { id: input.classId },
         data: {
           className: input.className,
-          assistance: input.assistance,
+          assistance: input.assistance ?? undefined,
           classPrice: new Prisma.Decimal(input.classPrice),
           classDay: input.classDay ? new Date(input.classDay) : undefined,
           classPaid: input.classPaid ?? undefined,
@@ -212,21 +234,23 @@ export const studentsRouter = createTRPCRouter({
     }),
 
   deleteClass: publicProcedure
-    .input(z.object({ classId: z.string().uuid() }))
+    .input(deleteClassInput)
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.$transaction([
-        ctx.db.studentClass.deleteMany({ where: { classId: input.classId } }),
-        ctx.db.class.delete({ where: { id: input.classId } }),
-      ]);
+      await ctx.db.class.delete({ where: { id: input.classId } });
       return { success: true };
     }),
 
   classes: publicProcedure.query(async ({ ctx }) => {
     const classes = await ctx.db.class.findMany({
-      include: { students: { include: { student: true } } },
+      include: { month: { include: { student: true } } },
       orderBy: { createdAt: "desc" },
     });
 
-    return classes;
+    return classes.map((cls) => ({
+      ...cls,
+      monthLabel: cls.month.label,
+      studentId: cls.month.studentId,
+      studentName: cls.month.student.name,
+    }));
   }),
 });

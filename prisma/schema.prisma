@@ -10,23 +10,33 @@ datasource db {
 }
 
 model Student {
-    id        String    @id @default(uuid()) @db.Uuid
+    id        Int       @id @default(autoincrement())
     name      String
     birthday  DateTime? @db.Date
     telephone String?
     day       String?
-    timetable String?
+    timetable Timetable?
+    months    Month[]
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+}
 
-    classes StudentClass[]
-
+model Month {
+    id        Int      @id @default(autoincrement())
+    label     String
+    student   Student  @relation(fields: [studentId], references: [id])
+    studentId Int
+    classes   Class[]
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+
+    @@unique([studentId, label])
 }
 
 model Class {
-    id            String    @id @default(uuid()) @db.Uuid
+    id            Int       @id @default(autoincrement())
     className     String
-    assistance    Boolean[] @default([false, false, false, false])
+    assistance    Boolean   @default(false)
     classDay      DateTime? @db.Date
     classPrice    Decimal
     classPaid     Boolean   @default(false)
@@ -36,19 +46,14 @@ model Class {
     materialName  String
     materialPrice String
     materialPaid  Boolean   @default(false)
-
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    students StudentClass[]
+    month         Month     @relation(fields: [monthId], references: [id])
+    monthId       Int
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
 }
 
-model StudentClass {
-    studentId String @db.Uuid
-    classId   String @db.Uuid
-
-    student Student @relation(fields: [studentId], references: [id])
-    class   Class   @relation(fields: [classId], references: [id])
-
-    @@id([studentId, classId])
+enum Timetable {
+    TEN_THIRTY @map("10:30")
+    SIXTEEN    @map("16:00")
+    EIGHTEEN   @map("18:30")
 }
