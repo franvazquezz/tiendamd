@@ -1,6 +1,5 @@
 import { type ButtonHTMLAttributes, type ReactNode } from "react";
 import { LuLoader2 } from "react-icons/lu";
-import { Button } from "@mantine/core";
 
 export const ButtonM = ({
   children,

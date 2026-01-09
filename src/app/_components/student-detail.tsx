@@ -999,7 +999,7 @@ export function StudentDetail() {
                       </p>
                       <p className="text-plum/80">
                         <span className="text-plum font-semibold">Horno:</span>{" "}
-                        {cls.ovenName || "—"}
+                        {cls.ovenName ?? "—"}
                       </p>
                       <p className="text-plum/80">
                         <span className="text-plum font-semibold">

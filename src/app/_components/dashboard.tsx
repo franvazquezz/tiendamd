@@ -15,7 +15,7 @@ import {
 import { StatCard } from "./statCard";
 import { ButtonM } from "./button";
 import Link from "next/link";
-import { Flex, Stack, Text, Title } from "@mantine/core";
+import { Stack, Text, Title } from "@mantine/core";
 
 export function Dashboard() {
   const [search, setSearch] = useState("");

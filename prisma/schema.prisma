@@ -46,8 +46,8 @@ model Class {
     materialName  String
     materialPrice String
     materialPaid  Boolean   @default(false)
-    month         Month?    @relation(fields: [monthId], references: [id])
-    monthId       Int?
+    month         Month     @relation(fields: [monthId], references: [id])
+    monthId       Int
     createdAt     DateTime  @default(now())
     updatedAt     DateTime  @updatedAt
 }
