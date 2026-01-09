@@ -21,7 +21,7 @@ export const studentCreateInput = z.object({
   birthday: dateString,
   telephone: z.string().optional(),
   day: z.string().optional(),
-  timetable: z.enum(["10:30", "16:00", "18:30"]).optional(),
+  timetable: z.enum(["10:00", "16:00", "18:30"]).optional(),
 });
 
 export const studentUpdateInput = z.object({
@@ -30,7 +30,7 @@ export const studentUpdateInput = z.object({
   birthday: dateString,
   telephone: z.string().optional(),
   day: z.string().optional(),
-  timetable: z.enum(["10:30", "16:00", "18:30"]).optional(),
+  timetable: z.enum(["10:00", "16:00", "18:30"]).optional(),
 });
 
 export const monthInput = z.object({
@@ -73,7 +73,7 @@ export type StudentWithMonths = Prisma.StudentGetPayload<{
   include: { months: { include: { classes: true } } };
 }>;
 
-export type TimetableOption = "10:30" | "16:00" | "18:30" | undefined;
+export type TimetableOption = "10:00" | "16:00" | "18:30" | undefined;
 
 export type StudentFormState = {
   name: string;

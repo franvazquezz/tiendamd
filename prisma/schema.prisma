@@ -10,15 +10,15 @@ datasource db {
 }
 
 model Student {
-    id        Int       @id @default(autoincrement())
+    id        Int        @id @default(autoincrement())
     name      String
-    birthday  DateTime? @db.Date
+    birthday  DateTime?  @db.Date
     telephone String?
     day       String?
     timetable Timetable?
     months    Month[]
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @updatedAt
+    createdAt DateTime   @default(now())
+    updatedAt DateTime   @updatedAt
 }
 
 model Month {
@@ -46,14 +46,14 @@ model Class {
     materialName  String
     materialPrice String
     materialPaid  Boolean   @default(false)
-    month         Month     @relation(fields: [monthId], references: [id])
-    monthId       Int
+    month         Month?    @relation(fields: [monthId], references: [id])
+    monthId       Int?
     createdAt     DateTime  @default(now())
     updatedAt     DateTime  @updatedAt
 }
 
 enum Timetable {
-    TEN_THIRTY @map("10:30")
-    SIXTEEN    @map("16:00")
-    EIGHTEEN   @map("18:30")
+    TEN      @map("10:00")
+    SIXTEEN  @map("16:00")
+    EIGHTEEN @map("18:30")
 }

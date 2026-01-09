@@ -30,7 +30,7 @@ export const emptyStudent: StudentFormState = {
   birthday: "",
   telephone: "",
   day: "",
-  timetable: "10:30",
+  timetable: "10:00",
 };
 
 export const emptyClassDraft: ClassFormState = {

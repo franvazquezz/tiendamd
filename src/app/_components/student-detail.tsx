@@ -77,6 +77,7 @@ export function StudentDetail() {
   const [showEditDetails, setShowEditDetails] = useState(false);
   const [showAddMonth, setShowAddMonth] = useState(false);
   const [showAddClass, setShowAddClass] = useState(false);
+  const [showEditClasses, setShowEditClasses] = useState(false);
 
   const notify = (type: "success" | "error", message: string) =>
     notifications.show({
@@ -94,8 +95,8 @@ export function StudentDetail() {
       telephone: data.telephone ?? "",
       day: data.day ?? "",
       timetable:
-        data.timetable === "10:30"
-          ? "10:30"
+        data.timetable === "10:00"
+          ? "10:00"
           : data.timetable === "16:00"
             ? "16:00"
             : data.timetable === "18:30"
@@ -396,8 +397,8 @@ export function StudentDetail() {
                 setForm({
                   ...form,
                   timetable:
-                    e.target.value === "10:30"
-                      ? "10:30"
+                    e.target.value === "10:00"
+                      ? "10:00"
                       : e.target.value === "16:00"
                         ? "16:00"
                         : e.target.value === "18:30"
@@ -408,8 +409,8 @@ export function StudentDetail() {
               className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white px-4 py-2 text-sm transition outline-none focus:ring-2"
             >
               <option value="">Seleccionar horario</option>
-              <option key={1} value={"10:30"}>
-                10:30
+              <option key={1} value={"10:00"}>
+                10:00
               </option>
               <option key={2} value={"16:00"}>
                 16:00
@@ -453,7 +454,7 @@ export function StudentDetail() {
         )}
       </div>
 
-      <section className="ring-plum/10 space-y-4 rounded-3xl bg-white/85 p-6 shadow-lg ring-1">
+      <section className="ring-plum/10 space-y-6 rounded-3xl bg-white/85 p-6 shadow-lg ring-1">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-plum/70 text-xs tracking-widest uppercase">
@@ -468,448 +469,575 @@ export function StudentDetail() {
           ) : null}
         </div>
 
-        <div className="border-plum/15 flex flex-col gap-3 rounded-2xl border bg-white/70 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-plum/70 text-xs tracking-widest uppercase">
-                Meses
-              </p>
-              <p className="text-plum text-sm font-semibold">
-                Crea un mes para agrupar las clases
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setShowAddMonth((prev) => !prev)}
-            >
-              {showAddMonth ? "Ocultar formulario" : "Agregar mes"}
-            </Button>
-          </div>
-          {showAddMonth ? (
-            <form
-              className="flex flex-col gap-2 md:flex-row md:items-center"
-              onSubmit={handleAddMonth}
-            >
-              <input
-                value={newMonth}
-                onChange={(e) => setNewMonth(e.target.value)}
-                placeholder="Ej: Mayo 2024"
-                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-              />
-              <Button
-                type="submit"
-                variant="ghost"
-                loading={addMonth.isPending}
-                className="md:w-auto"
-              >
-                <LuPlus className="h-4 w-4" />
-                Crear mes
-              </Button>
-            </form>
-          ) : null}
-        </div>
-        {data.months.length === 0 ? (
-          <p className="text-plum/60 text-sm">
-            Aún no hay meses creados para este alumno.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {data.months.map((month) => (
-              <span
-                key={month.id}
-                className="border-plum/20 text-plum rounded-full border bg-white/80 px-3 py-1 text-xs font-semibold"
-              >
-                {month.label}
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="border-secondary/30 bg-secondary/10 rounded-2xl border p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-plum text-sm font-semibold">
-              Agregar nueva clase
-            </p>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setShowAddClass((prev) => !prev)}
-            >
-              {showAddClass ? "Ocultar formulario" : "Agregar clase"}
-            </Button>
-          </div>
-          {showAddClass ? (
-            <form
-              className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-5"
-              onSubmit={handleAddClass}
-            >
-              <select
-                value={newClass.monthId ?? ""}
-                onChange={(e) => {
-                  const value =
-                    e.target.value === "" ? null : Number(e.target.value);
-                  setNewClass((prev) => ({
-                    ...prev,
-                    monthId: value,
-                  }));
-                }}
-                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-                disabled={data.months.length === 0}
-              >
-                <option value="">
-                  {data.months.length === 0
-                    ? "Crea un mes para asignar"
-                    : "Selecciona un mes"}
-                </option>
-                {data.months.map((month) => (
-                  <option key={month.id} value={month.id}>
-                    {month.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={newClass.className}
-                onChange={(e) =>
-                  setNewClass({ ...newClass, className: e.target.value })
-                }
-                placeholder="Nombre"
-                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-              />
-              <input
-                type="number"
-                value={newClass.classPrice}
-                onChange={(e) =>
-                  setNewClass({ ...newClass, classPrice: e.target.value })
-                }
-                placeholder="Precio"
-                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-              />
-              <input
-                type="date"
-                value={newClass.classDay}
-                onChange={(e) =>
-                  setNewClass({ ...newClass, classDay: e.target.value })
-                }
-                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-              />
-              <label className="text-plum flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={newClass.classPaid}
-                  onChange={(e) =>
-                    setNewClass({ ...newClass, classPaid: e.target.checked })
-                  }
-                  className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
-                />
-                Pagado
-              </label>
-              <label className="text-plum flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={newClass.assistance}
-                  onChange={(e) =>
-                    setNewClass({ ...newClass, assistance: e.target.checked })
-                  }
-                  className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
-                />
-                Asistió
-              </label>
-              <input
-                value={newClass.ovenName}
-                onChange={(e) =>
-                  setNewClass({ ...newClass, ovenName: e.target.value })
-                }
-                placeholder="Horno (nombre)"
-                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-              />
-              <input
-                value={newClass.ovenPrice}
-                onChange={(e) =>
-                  setNewClass({ ...newClass, ovenPrice: e.target.value })
-                }
-                placeholder="Horno (precio)"
-                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-              />
-              <label className="text-plum flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={newClass.ovenPaid}
-                  onChange={(e) =>
-                    setNewClass({ ...newClass, ovenPaid: e.target.checked })
-                  }
-                  className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
-                />
-                Horno pagado
-              </label>
-              <input
-                value={newClass.materialName}
-                onChange={(e) =>
-                  setNewClass({ ...newClass, materialName: e.target.value })
-                }
-                placeholder="Material (nombre)"
-                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-              />
-              <input
-                value={newClass.materialPrice}
-                onChange={(e) =>
-                  setNewClass({ ...newClass, materialPrice: e.target.value })
-                }
-                placeholder="Material (precio)"
-                className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-              />
-              <label className="text-plum flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={newClass.materialPaid}
-                  onChange={(e) =>
-                    setNewClass({ ...newClass, materialPaid: e.target.checked })
-                  }
-                  className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
-                />
-                Material pagado
-              </label>
-              <div className="flex items-center justify-end md:col-span-5">
+        <div className="grid gap-8 lg:grid-cols-2">
+          <div className="flex flex-col gap-6">
+            <div className="border-plum/15 flex flex-col gap-4 rounded-3xl border bg-white/80 p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-plum/70 text-xs tracking-widest uppercase">
+                    Formularios
+                  </p>
+                  <p className="text-plum text-sm font-semibold">
+                    Crea un mes para agrupar las clases
+                  </p>
+                </div>
                 <Button
-                  type="submit"
+                  type="button"
                   variant="ghost"
-                  loading={addClass.isPending}
-                  disabled={!newClass.monthId}
+                  onClick={() => setShowAddMonth((prev) => !prev)}
                 >
-                  <LuPlus className="h-4 w-4" />
-                  Guardar clase
+                  {showAddMonth ? "Ocultar formulario" : "Agregar mes"}
                 </Button>
               </div>
-            </form>
-          ) : null}
-        </div>
-
-        {data.classes.length === 0 ? (
-          <p className="border-plum/20 text-plum/70 rounded-xl border border-dashed bg-white/70 p-4 text-sm">
-            Este alumno aún no tiene clases cargadas.
-          </p>
-        ) : (
-          <div className="grid gap-4">
-            {data.classes.map((cls) => {
-              const draft = classDrafts[cls.id] ?? {
-                className: "",
-                classPrice: "",
-                classDay: "",
-                classPaid: false,
-                monthId: cls.monthId ?? null,
-                assistance: cls.assistance ?? false,
-                ovenName: cls.ovenName ?? "",
-                ovenPrice: cls.ovenPrice ?? "",
-                ovenPaid: cls.ovenPaid ?? false,
-                materialName: cls.materialName ?? "",
-                materialPrice: cls.materialPrice ?? "",
-                materialPaid: cls.materialPaid ?? false,
-              };
-              return (
-                <div
-                  key={cls.id}
-                  className="border-plum/15 bg-secondary/10 rounded-2xl border p-4 shadow-sm"
+              {showAddMonth ? (
+                <form
+                  className="flex flex-col gap-3 md:flex-row md:items-center"
+                  onSubmit={handleAddMonth}
                 >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-plum text-lg font-semibold">
-                      {cls.className}
-                    </h3>
-                    <span className="text-plum/60 text-xs">
-                      Creado el{" "}
-                      {new Date(cls.createdAt).toLocaleDateString("es-AR")}
-                    </span>
-                  </div>
-                  <p className="text-plum/70 text-xs">
-                    Mes:{" "}
-                    <span className="text-plum font-semibold">
-                      {cls.monthLabel}
-                    </span>
-                  </p>
-                  <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
-                    <input
-                      value={draft.className}
-                      onChange={(e) =>
-                        setClassDrafts((prev) => ({
-                          ...prev,
-                          [cls.id]: {
-                            ...(prev[cls.id] ?? draft),
-                            className: e.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="Nombre"
-                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-                    />
-                    <input
-                      type="number"
-                      value={draft.classPrice}
-                      onChange={(e) =>
-                        setClassDrafts((prev) => ({
-                          ...prev,
-                          [cls.id]: {
-                            ...(prev[cls.id] ?? draft),
-                            classPrice: e.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="Precio"
-                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-                    />
-                    <input
-                      type="date"
-                      value={draft.classDay}
-                      onChange={(e) =>
-                        setClassDrafts((prev) => ({
-                          ...prev,
-                          [cls.id]: {
-                            ...(prev[cls.id] ?? draft),
-                            classDay: e.target.value,
-                          },
-                        }))
-                      }
-                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-                    />
-                    <label className="text-plum flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={draft.classPaid}
-                        onChange={(e) =>
-                          setClassDrafts((prev) => ({
-                            ...prev,
-                            [cls.id]: {
-                              ...(prev[cls.id] ?? draft),
-                              classPaid: e.target.checked,
-                            },
-                          }))
-                        }
-                        className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
-                      />
-                      Pagado
-                    </label>
-                    <label className="text-plum flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={draft.assistance}
-                        onChange={(e) =>
-                          setClassDrafts((prev) => ({
-                            ...prev,
-                            [cls.id]: {
-                              ...(prev[cls.id] ?? draft),
-                              assistance: e.target.checked,
-                            },
-                          }))
-                        }
-                        className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
-                      />
-                      Asistió
-                    </label>
-                    <input
-                      value={draft.ovenName}
-                      onChange={(e) =>
-                        setClassDrafts((prev) => ({
-                          ...prev,
-                          [cls.id]: {
-                            ...(prev[cls.id] ?? draft),
-                            ovenName: e.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="Horno (nombre)"
-                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-                    />
-                    <input
-                      value={draft.ovenPrice}
-                      onChange={(e) =>
-                        setClassDrafts((prev) => ({
-                          ...prev,
-                          [cls.id]: {
-                            ...(prev[cls.id] ?? draft),
-                            ovenPrice: e.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="Horno (precio)"
-                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-                    />
-                    <label className="text-plum flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={draft.ovenPaid}
-                        onChange={(e) =>
-                          setClassDrafts((prev) => ({
-                            ...prev,
-                            [cls.id]: {
-                              ...(prev[cls.id] ?? draft),
-                              ovenPaid: e.target.checked,
-                            },
-                          }))
-                        }
-                        className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
-                      />
-                      Horno pagado
-                    </label>
-                    <input
-                      value={draft.materialName}
-                      onChange={(e) =>
-                        setClassDrafts((prev) => ({
-                          ...prev,
-                          [cls.id]: {
-                            ...(prev[cls.id] ?? draft),
-                            materialName: e.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="Material (nombre)"
-                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-                    />
-                    <input
-                      value={draft.materialPrice}
-                      onChange={(e) =>
-                        setClassDrafts((prev) => ({
-                          ...prev,
-                          [cls.id]: {
-                            ...(prev[cls.id] ?? draft),
-                            materialPrice: e.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="Material (precio)"
-                      className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
-                    />
-                    <label className="text-plum flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={draft.materialPaid}
-                        onChange={(e) =>
-                          setClassDrafts((prev) => ({
-                            ...prev,
-                            [cls.id]: {
-                              ...(prev[cls.id] ?? draft),
-                              materialPaid: e.target.checked,
-                            },
-                          }))
-                        }
-                        className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
-                      />
-                      Material pagado
-                    </label>
-                  </div>
-                  <div className="mt-3 flex justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      loading={updateClass.isPending}
-                      onClick={() => handleSaveClass(cls.id)}
+                  <input
+                    value={newMonth}
+                    onChange={(e) => setNewMonth(e.target.value)}
+                    placeholder="Ej: Mayo 2024"
+                    className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                  />
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    loading={addMonth.isPending}
+                    className="md:w-auto"
+                  >
+                    <LuPlus className="h-4 w-4" />
+                    Crear mes
+                  </Button>
+                </form>
+              ) : null}
+              {data.months.length === 0 ? (
+                <p className="text-plum/60 text-sm">
+                  Aún no hay meses creados para este alumno.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {data.months.map((month) => (
+                    <span
+                      key={month.id}
+                      className="border-plum/20 text-plum rounded-full border bg-white/80 px-3 py-1 text-xs font-semibold"
                     >
-                      <LuSave className="h-4 w-4" />
+                      {month.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-secondary/30 bg-secondary/10 rounded-3xl border p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-plum text-sm font-semibold">
+                  Agregar nueva clase
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowAddClass((prev) => !prev)}
+                >
+                  {showAddClass ? "Ocultar formulario" : "Agregar clase"}
+                </Button>
+              </div>
+              {showAddClass ? (
+                <form
+                  className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5"
+                  onSubmit={handleAddClass}
+                >
+                  <select
+                    value={newClass.monthId ?? ""}
+                    onChange={(e) => {
+                      const value =
+                        e.target.value === "" ? null : Number(e.target.value);
+                      setNewClass((prev) => ({
+                        ...prev,
+                        monthId: value,
+                      }));
+                    }}
+                    className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                    disabled={data.months.length === 0}
+                  >
+                    <option value="">
+                      {data.months.length === 0
+                        ? "Crea un mes para asignar"
+                        : "Selecciona un mes"}
+                    </option>
+                    {data.months.map((month) => (
+                      <option key={month.id} value={month.id}>
+                        {month.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={newClass.className}
+                    onChange={(e) =>
+                      setNewClass({ ...newClass, className: e.target.value })
+                    }
+                    placeholder="Nombre"
+                    className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                  />
+                  <input
+                    type="number"
+                    value={newClass.classPrice}
+                    onChange={(e) =>
+                      setNewClass({ ...newClass, classPrice: e.target.value })
+                    }
+                    placeholder="Precio"
+                    className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                  />
+                  <input
+                    type="date"
+                    value={newClass.classDay}
+                    onChange={(e) =>
+                      setNewClass({ ...newClass, classDay: e.target.value })
+                    }
+                    className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                  />
+                  <label className="text-plum flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={newClass.classPaid}
+                      onChange={(e) =>
+                        setNewClass({
+                          ...newClass,
+                          classPaid: e.target.checked,
+                        })
+                      }
+                      className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                    />
+                    Pagado
+                  </label>
+                  <label className="text-plum flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={newClass.assistance}
+                      onChange={(e) =>
+                        setNewClass({
+                          ...newClass,
+                          assistance: e.target.checked,
+                        })
+                      }
+                      className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                    />
+                    Asistió
+                  </label>
+                  <input
+                    value={newClass.ovenName}
+                    onChange={(e) =>
+                      setNewClass({ ...newClass, ovenName: e.target.value })
+                    }
+                    placeholder="Horno (nombre)"
+                    className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                  />
+                  <input
+                    value={newClass.ovenPrice}
+                    onChange={(e) =>
+                      setNewClass({ ...newClass, ovenPrice: e.target.value })
+                    }
+                    placeholder="Horno (precio)"
+                    className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                  />
+                  <label className="text-plum flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={newClass.ovenPaid}
+                      onChange={(e) =>
+                        setNewClass({ ...newClass, ovenPaid: e.target.checked })
+                      }
+                      className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                    />
+                    Horno pagado
+                  </label>
+                  <input
+                    value={newClass.materialName}
+                    onChange={(e) =>
+                      setNewClass({ ...newClass, materialName: e.target.value })
+                    }
+                    placeholder="Material (nombre)"
+                    className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                  />
+                  <input
+                    value={newClass.materialPrice}
+                    onChange={(e) =>
+                      setNewClass({
+                        ...newClass,
+                        materialPrice: e.target.value,
+                      })
+                    }
+                    placeholder="Material (precio)"
+                    className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                  />
+                  <label className="text-plum flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={newClass.materialPaid}
+                      onChange={(e) =>
+                        setNewClass({
+                          ...newClass,
+                          materialPaid: e.target.checked,
+                        })
+                      }
+                      className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                    />
+                    Material pagado
+                  </label>
+                  <div className="flex items-center justify-end md:col-span-5">
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      loading={addClass.isPending}
+                      disabled={!newClass.monthId}
+                    >
+                      <LuPlus className="h-4 w-4" />
                       Guardar clase
                     </Button>
                   </div>
-                </div>
-              );
-            })}
+                </form>
+              ) : null}
+            </div>
+
+            <div className="border-plum/15 rounded-3xl border bg-white/80 p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-plum text-sm font-semibold">Editar clases</p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowEditClasses((prev) => !prev)}
+                >
+                  {showEditClasses ? "Ocultar edición" : "Editar clases"}
+                </Button>
+              </div>
+              {showEditClasses ? (
+                data.classes.length === 0 ? (
+                  <p className="text-plum/60 mt-4 text-sm">
+                    Este alumno aún no tiene clases cargadas.
+                  </p>
+                ) : (
+                  <div className="mt-4 grid gap-4">
+                    {data.classes.map((cls) => {
+                      const draft = classDrafts[cls.id] ?? {
+                        className: "",
+                        classPrice: "",
+                        classDay: "",
+                        classPaid: false,
+                        monthId: cls.monthId ?? null,
+                        assistance: cls.assistance ?? false,
+                        ovenName: cls.ovenName ?? "",
+                        ovenPrice: cls.ovenPrice ?? "",
+                        ovenPaid: cls.ovenPaid ?? false,
+                        materialName: cls.materialName ?? "",
+                        materialPrice: cls.materialPrice ?? "",
+                        materialPaid: cls.materialPaid ?? false,
+                      };
+                      return (
+                        <div
+                          key={cls.id}
+                          className="border-plum/15 bg-secondary/10 rounded-2xl border p-4 shadow-sm"
+                        >
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <h3 className="text-plum text-lg font-semibold">
+                              {cls.className}
+                            </h3>
+                            <span className="text-plum/60 text-xs">
+                              Creado el{" "}
+                              {new Date(cls.createdAt).toLocaleDateString(
+                                "es-AR",
+                              )}
+                            </span>
+                          </div>
+                          <p className="text-plum/70 text-xs">
+                            Mes:{" "}
+                            <span className="text-plum font-semibold">
+                              {cls.monthLabel}
+                            </span>
+                          </p>
+                          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+                            <input
+                              value={draft.className}
+                              onChange={(e) =>
+                                setClassDrafts((prev) => ({
+                                  ...prev,
+                                  [cls.id]: {
+                                    ...(prev[cls.id] ?? draft),
+                                    className: e.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder="Nombre"
+                              className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                            />
+                            <input
+                              type="number"
+                              value={draft.classPrice}
+                              onChange={(e) =>
+                                setClassDrafts((prev) => ({
+                                  ...prev,
+                                  [cls.id]: {
+                                    ...(prev[cls.id] ?? draft),
+                                    classPrice: e.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder="Precio"
+                              className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                            />
+                            <input
+                              type="date"
+                              value={draft.classDay}
+                              onChange={(e) =>
+                                setClassDrafts((prev) => ({
+                                  ...prev,
+                                  [cls.id]: {
+                                    ...(prev[cls.id] ?? draft),
+                                    classDay: e.target.value,
+                                  },
+                                }))
+                              }
+                              className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                            />
+                            <label className="text-plum flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={draft.classPaid}
+                                onChange={(e) =>
+                                  setClassDrafts((prev) => ({
+                                    ...prev,
+                                    [cls.id]: {
+                                      ...(prev[cls.id] ?? draft),
+                                      classPaid: e.target.checked,
+                                    },
+                                  }))
+                                }
+                                className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                              />
+                              Pagado
+                            </label>
+                            <label className="text-plum flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={draft.assistance}
+                                onChange={(e) =>
+                                  setClassDrafts((prev) => ({
+                                    ...prev,
+                                    [cls.id]: {
+                                      ...(prev[cls.id] ?? draft),
+                                      assistance: e.target.checked,
+                                    },
+                                  }))
+                                }
+                                className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                              />
+                              Asistió
+                            </label>
+                            <input
+                              value={draft.ovenName}
+                              onChange={(e) =>
+                                setClassDrafts((prev) => ({
+                                  ...prev,
+                                  [cls.id]: {
+                                    ...(prev[cls.id] ?? draft),
+                                    ovenName: e.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder="Horno (nombre)"
+                              className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                            />
+                            <input
+                              value={draft.ovenPrice}
+                              onChange={(e) =>
+                                setClassDrafts((prev) => ({
+                                  ...prev,
+                                  [cls.id]: {
+                                    ...(prev[cls.id] ?? draft),
+                                    ovenPrice: e.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder="Horno (precio)"
+                              className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                            />
+                            <label className="text-plum flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={draft.ovenPaid}
+                                onChange={(e) =>
+                                  setClassDrafts((prev) => ({
+                                    ...prev,
+                                    [cls.id]: {
+                                      ...(prev[cls.id] ?? draft),
+                                      ovenPaid: e.target.checked,
+                                    },
+                                  }))
+                                }
+                                className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                              />
+                              Horno pagado
+                            </label>
+                            <input
+                              value={draft.materialName}
+                              onChange={(e) =>
+                                setClassDrafts((prev) => ({
+                                  ...prev,
+                                  [cls.id]: {
+                                    ...(prev[cls.id] ?? draft),
+                                    materialName: e.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder="Material (nombre)"
+                              className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                            />
+                            <input
+                              value={draft.materialPrice}
+                              onChange={(e) =>
+                                setClassDrafts((prev) => ({
+                                  ...prev,
+                                  [cls.id]: {
+                                    ...(prev[cls.id] ?? draft),
+                                    materialPrice: e.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder="Material (precio)"
+                              className="border-plum/20 text-ink ring-primary/20 rounded-lg border bg-white px-3 py-2 text-sm transition outline-none focus:ring-2"
+                            />
+                            <label className="text-plum flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={draft.materialPaid}
+                                onChange={(e) =>
+                                  setClassDrafts((prev) => ({
+                                    ...prev,
+                                    [cls.id]: {
+                                      ...(prev[cls.id] ?? draft),
+                                      materialPaid: e.target.checked,
+                                    },
+                                  }))
+                                }
+                                className="border-plum/30 text-primary focus:ring-primary h-4 w-4 rounded"
+                              />
+                              Material pagado
+                            </label>
+                          </div>
+                          <div className="mt-3 flex justify-end">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              loading={updateClass.isPending}
+                              onClick={() => handleSaveClass(cls.id)}
+                            >
+                              <LuSave className="h-4 w-4" />
+                              Guardar clase
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              ) : null}
+            </div>
           </div>
-        )}
+
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
+              <p className="text-plum/70 text-md tracking-widest uppercase">
+                Detalle de clases
+              </p>
+              <p className="text-plum text-sm font-semibold">
+                Resumen de cada clase cargada
+              </p>
+            </div>
+
+            {data.classes.length === 0 ? (
+              <p className="border-plum/20 text-plum/70 rounded-2xl border border-dashed bg-white/70 p-6 text-sm">
+                Este alumno aún no tiene clases cargadas.
+              </p>
+            ) : (
+              <div className="grid gap-4">
+                {data.classes.map((cls) => (
+                  <div
+                    key={cls.id}
+                    className="border-plum/15 rounded-3xl border bg-white/90 p-5 shadow-sm"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="text-plum text-lg font-semibold">
+                          {cls.className}
+                        </h3>
+                        <p className="text-plum/70 text-xs">
+                          Mes:{" "}
+                          <span className="text-plum font-semibold">
+                            {cls.monthLabel}
+                          </span>
+                        </p>
+                      </div>
+                      <span className="text-plum/60 text-xs">
+                        {cls.classDay
+                          ? new Date(cls.classDay).toLocaleDateString("es-AR")
+                          : "Sin fecha"}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+                      <p className="text-plum/80">
+                        <span className="text-plum font-semibold">Precio:</span>{" "}
+                        ${Number(cls.classPrice ?? 0).toLocaleString("es-AR")}
+                      </p>
+                      <p className="text-plum/80">
+                        <span className="text-plum font-semibold">Pagado:</span>{" "}
+                        {cls.classPaid ? "Sí" : "No"}
+                      </p>
+                      <p className="text-plum/80">
+                        <span className="text-plum font-semibold">
+                          Asistencia:
+                        </span>{" "}
+                        {cls.assistance ? "Sí" : "No"}
+                      </p>
+                      <p className="text-plum/80">
+                        <span className="text-plum font-semibold">Horno:</span>{" "}
+                        {cls.ovenName || "—"}
+                      </p>
+                      <p className="text-plum/80">
+                        <span className="text-plum font-semibold">
+                          Precio horno:
+                        </span>{" "}
+                        {cls.ovenPrice ? `$${cls.ovenPrice}` : "—"}
+                      </p>
+                      <p className="text-plum/80">
+                        <span className="text-plum font-semibold">
+                          Horno pagado:
+                        </span>{" "}
+                        {cls.ovenPaid ? "Sí" : "No"}
+                      </p>
+                      <p className="text-plum/80">
+                        <span className="text-plum font-semibold">
+                          Material:
+                        </span>{" "}
+                        {cls.materialName || "—"}
+                      </p>
+                      <p className="text-plum/80">
+                        <span className="text-plum font-semibold">
+                          Precio material:
+                        </span>{" "}
+                        {cls.materialPrice ? `$${cls.materialPrice}` : "—"}
+                      </p>
+                      <p className="text-plum/80">
+                        <span className="text-plum font-semibold">
+                          Material pagado:
+                        </span>{" "}
+                        {cls.materialPaid ? "Sí" : "No"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </section>
     </div>
   );

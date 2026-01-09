@@ -16,11 +16,11 @@ import type { StudentWithMonths } from "~/types/students";
 
 // Map between Prisma enum names and the readable timetable strings used by
 // the frontend and zod validation. Prisma enum values are defined in
-// prisma/schema.prisma as: TEN_THIRTY @map("10:30"), SIXTEEN @map("16:00"),
+// prisma/schema.prisma as: TEN @map("10:00"), SIXTEEN @map("16:00"),
 // EIGHTEEN @map("18:30"). The Prisma client will expose the enum *names*
-// (TEN_THIRTY, SIXTEEN, EIGHTEEN) in JS, so we translate back and forth.
+// (TEN, SIXTEEN, EIGHTEEN) in JS, so we translate back and forth.
 const TIMETABLE_MAP: Record<string, string> = {
-  TEN_THIRTY: "10:30",
+  TEN: "10:00",
   SIXTEEN: "16:00",
   EIGHTEEN: "18:30",
 };
@@ -34,6 +34,40 @@ const timetableValueToName = (value?: string | null) => {
   if (!value) return undefined;
   const entry = Object.entries(TIMETABLE_MAP).find(([, v]) => v === value);
   return entry ? entry[0] : undefined;
+};
+
+const DAY_ORDER = [
+  "lunes",
+  "martes",
+  "miercoles",
+  "jueves",
+  "viernes",
+  "sabado",
+  "domingo",
+];
+
+const TIMETABLE_ORDER = ["10:00", "16:00", "18:30"];
+
+const normalizeDay = (value?: string | null) =>
+  value
+    ? value
+        .trim()
+        .toLowerCase()
+        .replace(/á/g, "a")
+        .replace(/é/g, "e")
+        .replace(/í/g, "i")
+        .replace(/ó/g, "o")
+        .replace(/ú/g, "u")
+    : "";
+
+const getDayRank = (value?: string | null) => {
+  const index = DAY_ORDER.indexOf(normalizeDay(value));
+  return index === -1 ? Number.POSITIVE_INFINITY : index;
+};
+
+const getTimetableRank = (value?: string | null) => {
+  const index = value ? TIMETABLE_ORDER.indexOf(value) : -1;
+  return index === -1 ? Number.POSITIVE_INFINITY : index;
 };
 
 const mapStudent = (student: StudentWithMonths) => {
@@ -83,10 +117,16 @@ export const studentsRouter = createTRPCRouter({
             }
           : undefined,
         include: { months: { include: { classes: true } } },
-        orderBy: { createdAt: "desc" },
       });
 
-      return students.map(mapStudent);
+      return students.map(mapStudent).sort((a, b) => {
+        const dayDiff = getDayRank(a.day) - getDayRank(b.day);
+        if (dayDiff !== 0) return dayDiff;
+        const timeDiff =
+          getTimetableRank(a.timetable) - getTimetableRank(b.timetable);
+        if (timeDiff !== 0) return timeDiff;
+        return a.name.localeCompare(b.name);
+      });
     }),
 
   byId: publicProcedure.input(studentIdInput).query(async ({ ctx, input }) => {

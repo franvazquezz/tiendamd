@@ -6,8 +6,7 @@ import { LuPlus, LuTrash2 } from "react-icons/lu";
 
 import { api } from "~/trpc/react";
 import {
-  type CalendarDayKey,
-  type CalendarEntry,
+  type Student,
   emptyStudent,
   getDayFromString,
   parseTimeToMinutes,
@@ -22,7 +21,6 @@ export function Dashboard() {
   const [search, setSearch] = useState("");
   const [studentForm, setStudentForm] = useState({ ...emptyStudent });
   const [showCreateStudent, setShowCreateStudent] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   const utils = api.useUtils();
   const { data: students, isLoading } = api.students.list.useQuery(
@@ -77,41 +75,54 @@ export function Dashboard() {
     });
   };
 
-  const calendarEntries = useMemo<CalendarEntry[]>(() => {
+  const groupedStudents = useMemo(() => {
     if (!students) return [];
-    return students.map((student) => {
+    const dayMap = new Map<
+      number | "unscheduled",
+      { label: string; times: Map<string, Student[]> }
+    >();
+
+    for (const student of students) {
       const preferredDay = getDayFromString(student.day ?? undefined);
-      return {
-        day: preferredDay?.value ?? "unscheduled",
-        dayLabel: preferredDay?.label ?? "Sin día",
-        time: student.timetable?.trim() ?? "Sin horario",
-        student: student.name,
-        id: student.id,
-      };
-    });
-  }, [students]);
+      const dayKey = preferredDay?.value ?? "unscheduled";
+      const dayLabel = preferredDay?.label ?? "Sin día";
+      const time = student.timetable?.trim() ?? "Sin horario";
 
-  const calendarTimes = useMemo(() => {
-    const times = Array.from(
-      new Set(calendarEntries.map((entry) => entry.time)),
-    );
-    return times.sort((a, b) => parseTimeToMinutes(a) - parseTimeToMinutes(b));
-  }, [calendarEntries]);
+      if (!dayMap.has(dayKey)) {
+        dayMap.set(dayKey, { label: dayLabel, times: new Map() });
+      }
 
-  const calendarDays = useMemo<
-    Array<{ value: CalendarDayKey; label: string }>
-  >(() => {
-    const needsUnscheduled = calendarEntries.some(
-      (entry) => entry.day === "unscheduled",
-    );
-    const base = WEEK_DAYS.map((day) => ({
-      value: day.value,
+      const dayEntry = dayMap.get(dayKey);
+      if (!dayEntry) continue;
+      if (!dayEntry.times.has(time)) {
+        dayEntry.times.set(time, []);
+      }
+      dayEntry.times.get(time)?.push(student);
+    }
+
+    const baseDays = WEEK_DAYS.map((day) => ({
+      key: day.value,
       label: day.label,
     }));
-    return needsUnscheduled
-      ? [...base, { value: "unscheduled", label: "Sin día" }]
-      : base;
-  }, [calendarEntries]);
+    const needsUnscheduled = dayMap.has("unscheduled");
+    const orderedDays = needsUnscheduled
+      ? [...baseDays, { key: "unscheduled" as const, label: "Sin día" }]
+      : baseDays;
+
+    return orderedDays
+      .filter((day) => dayMap.has(day.key))
+      .map((day) => {
+        const dayEntry = dayMap.get(day.key);
+        const times = Array.from(dayEntry?.times.entries() ?? []).sort(
+          ([a], [b]) => parseTimeToMinutes(a) - parseTimeToMinutes(b),
+        );
+        return {
+          key: day.key,
+          label: dayEntry?.label ?? day.label,
+          times: times.map(([time, list]) => ({ time, students: list })),
+        };
+      });
+  }, [students]);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10">
@@ -214,8 +225,8 @@ export function Dashboard() {
                 setStudentForm({
                   ...studentForm,
                   timetable:
-                    e.target.value === "10:30"
-                      ? "10:30"
+                    e.target.value === "10:00"
+                      ? "10:00"
                       : e.target.value === "16:00"
                         ? "16:00"
                         : e.target.value === "18:30"
@@ -226,8 +237,8 @@ export function Dashboard() {
               className="border-plum/20 text-ink ring-primary/20 rounded-xl border bg-white/80 px-4 py-2 text-sm transition outline-none focus:ring-2"
             >
               <option value="">Seleccionar horario</option>
-              <option key={1} value={"10:30"}>
-                10:30
+              <option key={1} value={"10:00"}>
+                10:00
               </option>
               <option key={2} value={"16:00"}>
                 16:00
@@ -256,156 +267,81 @@ export function Dashboard() {
           </div>
           <div className="flex items-center gap-3">
             {isLoading && <p className="text-plum/60 text-sm">Cargando...</p>}
-            <div className="border-plum/15 bg-plum/5 flex items-center gap-2 rounded-full border p-1">
-              <button
-                type="button"
-                onClick={() => setViewMode("list")}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  viewMode === "list"
-                    ? "text-plum ring-plum/20 bg-white shadow-sm ring-1"
-                    : "text-plum/70 hover:text-plum"
-                }`}
-              >
-                Lista
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("calendar")}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  viewMode === "calendar"
-                    ? "text-plum ring-plum/20 bg-white shadow-sm ring-1"
-                    : "text-plum/70 hover:text-plum"
-                }`}
-              >
-                Calendario
-              </button>
-            </div>
           </div>
         </div>
-
-        {viewMode === "calendar" ? (
-          <div className="border-plum/15 rounded-2xl border bg-white/90 p-4 shadow-md">
-            {calendarEntries.length === 0 && !isLoading ? (
-              <p className="text-plum/70 text-sm">
-                No hay alumnos o clases para mostrar en el calendario todavía.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <div className="min-w-240">
-                  <div
-                    className="border-plum/10 bg-plum/5 text-plum/80 grid border-b text-xs font-semibold tracking-[0.08em] uppercase"
-                    style={{
-                      gridTemplateColumns: `140px repeat(${calendarDays.length}, minmax(0,1fr))`,
-                    }}
-                  >
-                    <div className="px-3 py-3">Horario</div>
-                    {calendarDays.map((day) => (
-                      <div
-                        key={day.value}
-                        className="border-plum/10 border-l px-3 py-3 text-center"
-                      >
-                        {day.label}
-                      </div>
-                    ))}
-                  </div>
-                  {calendarTimes.map((time) => (
-                    <div
-                      key={time}
-                      className="border-plum/5 grid border-b last:border-b-0"
-                      style={{
-                        gridTemplateColumns: `140px repeat(${calendarDays.length}, minmax(0,1fr))`,
-                      }}
-                    >
-                      <div className="border-plum/5 bg-plum/5 text-plum border-r px-3 py-3 text-sm font-semibold">
-                        {time}
-                      </div>
-                      {calendarDays.map((day) => {
-                        const matches = calendarEntries.filter(
-                          (entry) =>
-                            entry.day === day.value && entry.time === time,
-                        );
-                        return (
-                          <Flex
-                            key={`${time}-${day.value}`}
-                            className="border-plum/5 min-h-24 border-l px-3 py-2"
-                            justify={"space-around"}
-                          >
-                            {matches.length === 0 ? (
-                              <Text className="text-plum/40 text-xs">—</Text>
-                            ) : (
-                              <Stack gap={"md"} justify="space-around">
-                                {matches.map((match, idx) => (
-                                  <Flex
-                                    key={`${match.student}-${match.time}-${idx}`}
-                                    className="border-plum/20 bg-primary/5 text-plum rounded-lg border px-3 py-2 text-xs shadow-sm"
-                                  >
-                                    <Text className="text-plum text-sm font-semibold">
-                                      <Link href={`/students/${match.id}`}>
-                                        {match.student}
-                                      </Link>
-                                    </Text>
-                                  </Flex>
-                                ))}
-                              </Stack>
-                            )}
-                          </Flex>
-                        );
-                      })}
-                    </div>
-                  ))}
+        <div className="flex flex-col gap-6">
+          {groupedStudents.map((dayGroup) => (
+            <div key={dayGroup.label} className="flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 text-primary rounded-full px-4 py-1 text-xs font-semibold tracking-[0.12em] uppercase">
+                  {dayGroup.label}
                 </div>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {students?.map((student) => {
-              return (
-                <Stack
-                  key={student.id}
-                  className="border-plum/15 gap-4 rounded-2xl bg-white/85 p-4 shadow-md shadow-[#a30d0d]/15"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <Title size={"xl"} className="text-plum font-semibold">
-                        {student.name}
-                      </Title>
-                      <Text className="text-plum/70 text-xs">
-                        {student.day
-                          ? `Día: ${student.day}`
-                          : "Sin día asignado"}
-                      </Text>
-                      <Text className="text-plum/60 text-xs">
-                        {student.classes.length} clases
-                      </Text>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link
-                        href={`/students/${student.id}`}
-                        className="border-plum/20 text-plum hover:border-plum/40 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
-                      >
-                        Ver detalle
-                      </Link>
-                      <ButtonM
-                        variant="danger"
-                        onClick={() => deleteStudent.mutate({ id: student.id })}
-                        loading={deleteStudent.isPending}
-                      >
-                        <LuTrash2 className="h-4 w-4" />
-                      </ButtonM>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {dayGroup.times.map((timeGroup) => (
+                  <div
+                    key={`${dayGroup.label}-${timeGroup.time}`}
+                    className="border-plum/15 rounded-2xl bg-white/85 p-4 shadow-md shadow-[#a30d0d]/15"
+                  >
+                    <Text className="text-plum/70 text-xs tracking-[0.12em] uppercase">
+                      {dayGroup.label} {timeGroup.time}
+                    </Text>
+                    <div className="mt-3 flex flex-col gap-3">
+                      {timeGroup.students.map((student) => (
+                        <Stack
+                          key={student.id}
+                          className="border-plum/10 gap-3 rounded-2xl bg-white/70 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <Title
+                                size={"lg"}
+                                className="text-plum font-semibold"
+                              >
+                                {student.name}
+                              </Title>
+                              <Text className="text-plum/70 text-xs">
+                                {student.day
+                                  ? `Día: ${student.day}`
+                                  : "Sin día asignado"}
+                              </Text>
+                              <Text className="text-plum/60 text-xs">
+                                {student.classes.length} clases
+                              </Text>
+                            </div>
+                            <div className="flex gap-2">
+                              <Link
+                                href={`/students/${student.id}`}
+                                className="border-plum/20 text-plum hover:border-plum/40 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
+                              >
+                                Ver detalle
+                              </Link>
+                              <ButtonM
+                                variant="danger"
+                                onClick={() =>
+                                  deleteStudent.mutate({ id: student.id })
+                                }
+                                loading={deleteStudent.isPending}
+                              >
+                                <LuTrash2 className="h-4 w-4" />
+                              </ButtonM>
+                            </div>
+                          </div>
+                        </Stack>
+                      ))}
                     </div>
                   </div>
-                </Stack>
-              );
-            })}
-            {!isLoading && (students?.length ?? 0) === 0 ? (
-              <p className="border-plum/30 text-plum/70 rounded-2xl border border-dashed bg-white/60 p-6 text-center text-sm">
-                Aún no hay alumnos cargados. Crea el primero para empezar a
-                registrar clases.
-              </p>
-            ) : null}
-          </div>
-        )}
+                ))}
+              </div>
+            </div>
+          ))}
+          {!isLoading && (students?.length ?? 0) === 0 ? (
+            <p className="border-plum/30 text-plum/70 rounded-2xl border border-dashed bg-white/60 p-6 text-center text-sm">
+              Aún no hay alumnos cargados. Crea el primero para empezar a
+              registrar clases.
+            </p>
+          ) : null}
+        </div>
       </section>
     </div>
   );

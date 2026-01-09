@@ -23,13 +23,13 @@ export const ButtonM = ({
   };
 
   return (
-    <Button
+    <button
       className={`${base} ${variants[variant]}`}
       disabled={loading}
       {...props}
     >
       {loading ? <LuLoader2 className="h-4 w-4 animate-spin" /> : null}
       {children}
-    </Button>
+    </button>
   );
 };
