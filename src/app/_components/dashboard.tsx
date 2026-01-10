@@ -123,7 +123,38 @@ export function Dashboard() {
         };
       });
   }, [students]);
-
+  const studentsWithUpcomingBirthdays = useMemo(() => {
+    if (!students) return [];
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const upcoming = students
+      .map((student) => {
+        if (!student.birthday) return null;
+        const birthdayDate = new Date(student.birthday);
+        if (Number.isNaN(birthdayDate.getTime())) return null;
+        const birthdayThisYear = new Date(
+          today.getFullYear(),
+          birthdayDate.getMonth(),
+          birthdayDate.getDate(),
+        );
+        if (birthdayThisYear < today) {
+          birthdayThisYear.setFullYear(birthdayThisYear.getFullYear() + 1);
+        }
+        const diffDays = Math.ceil(
+          (birthdayThisYear.getTime() - today.getTime()) /
+            (1000 * 60 * 60 * 24),
+        );
+        return { student, diffDays };
+      })
+      .filter(
+        (item): item is { student: Student; diffDays: number } =>
+          item !== null,
+      )
+      .sort((a, b) => a.diffDays - b.diffDays)
+      .slice(0, 4)
+      .map((item) => item.student);
+    return upcoming;
+  }, [students]);
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10">
       <section className="from-primary via-plum to-secondary overflow-hidden rounded-3xl bg-linear-to-r p-px shadow-xl">
@@ -134,11 +165,10 @@ export function Dashboard() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h1 className="text-plum text-3xl font-black sm:text-4xl">
-                Dashboard de alumnos y clases
+                Panel de alumnos y clases
               </h1>
               <p className="text-plum/80 mt-2 text-sm">
-                Controla alumnos, pagos y cronograma en un único panel, ahora
-                con stack Next.js + tRPC + Prisma.
+                Controla alumnos, pagos y cronograma.
               </p>
             </div>
             <div className="flex gap-3">
@@ -170,8 +200,7 @@ export function Dashboard() {
           </p>
           <h2 className="text-plum text-2xl font-semibold">Registrar</h2>
           <p className="text-plum/80 text-sm">
-            Crea alumnos con su información básica. Los nombres se guardan
-            capitalizados automáticamente.
+            Crea alumnos con su información básica.
           </p>
           <ButtonM
             type="button"
@@ -256,7 +285,45 @@ export function Dashboard() {
           </form>
         ) : null}
       </section>
-
+      <section>
+        <Stack gap={4}>
+          <div>
+            <p className="text-plum/70 text-xs tracking-[0.12em] uppercase">
+              Alumnos
+            </p>
+            <h2 className="text-plum text-2xl font-semibold">Cumpleaños</h2>
+            <p className="text-plum/80 text-sm">
+              Próximos alumnos a cumplir años
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {studentsWithUpcomingBirthdays.map((student) => (
+              <div
+                key={student.id}
+                className="border-plum/25 rounded-2xl bg-white/75 p-4 shadow-md shadow-[#a30d0d]/25"
+              >
+                <Title size={"lg"} className="text-plum font-semibold">
+                  {student.name}
+                </Title>
+                <div className="mt-3 flex flex-col gap-1">
+                  <Text className="text-plum/80 text-sm">
+                    Cumpleaños:{" "}
+                    {student.birthday
+                      ? new Date(student.birthday).toLocaleDateString(
+                          undefined,
+                          {
+                            day: "2-digit",
+                            month: "2-digit",
+                          },
+                        )
+                      : "Sin fecha"}
+                  </Text>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Stack>
+      </section>
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
@@ -290,7 +357,7 @@ export function Dashboard() {
                       {timeGroup.students.map((student) => (
                         <Stack
                           key={student.id}
-                          className="border-plum/10 gap-3 rounded-2xl bg-white/70 p-3"
+                          className="border-plum/10 gap-3 rounded-2xl bg-white/70 p-3 shadow-sm shadow-[#a30d0d]/10"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div>
@@ -310,12 +377,11 @@ export function Dashboard() {
                               </Text>
                             </div>
                             <div className="flex gap-2">
-                              <Link
-                                href={`/students/${student.id}`}
-                                className="border-plum/20 text-plum hover:border-plum/40 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
-                              >
-                                Ver detalle
-                              </Link>
+                              <ButtonM variant="danger">
+                                <Link href={`/students/${student.id}`}>
+                                  <Text size="xs">Ver detalle</Text>
+                                </Link>
+                              </ButtonM>
                               <ButtonM
                                 variant="danger"
                                 onClick={() =>
